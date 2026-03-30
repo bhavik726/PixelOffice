@@ -102,45 +102,48 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
 
     // TODO: support DB room metadata -> Colyseus room options mapping for multi-room scaling.
 
-    this.onMessage('move', (client, message: { x?: number; y?: number; dx?: number; dy?: number }) => {
-      this.touchActivity();
+    this.onMessage(
+      'move',
+      (client, message: { x?: number; y?: number; dx?: number; dy?: number }) => {
+        this.touchActivity();
 
-      const player = this.state.players.get(client.sessionId);
-      if (!player) {
-        logger.warn('PixelOffice move received for missing player', {
+        const player = this.state.players.get(client.sessionId);
+        if (!player) {
+          logger.warn('PixelOffice move received for missing player', {
+            roomId: this.roomId,
+            sessionId: client.sessionId,
+            message,
+          });
+          return;
+        }
+
+        const hasAbsolute = typeof message.x === 'number' && typeof message.y === 'number';
+        const hasDelta = typeof message.dx === 'number' || typeof message.dy === 'number';
+
+        if (hasAbsolute) {
+          player.x = message.x as number;
+          player.y = message.y as number;
+        } else if (hasDelta) {
+          player.x += message.dx ?? 0;
+          player.y += message.dy ?? 0;
+        } else {
+          logger.warn('PixelOffice move received with invalid payload', {
+            roomId: this.roomId,
+            sessionId: client.sessionId,
+            message,
+          });
+          return;
+        }
+
+        logger.info('PixelOffice player moved', {
           roomId: this.roomId,
           sessionId: client.sessionId,
-          message,
+          x: player.x,
+          y: player.y,
+          raw: message,
         });
-        return;
-      }
-
-      const hasAbsolute = typeof message.x === 'number' && typeof message.y === 'number';
-      const hasDelta = typeof message.dx === 'number' || typeof message.dy === 'number';
-
-      if (hasAbsolute) {
-        player.x = message.x as number;
-        player.y = message.y as number;
-      } else if (hasDelta) {
-        player.x += message.dx ?? 0;
-        player.y += message.dy ?? 0;
-      } else {
-        logger.warn('PixelOffice move received with invalid payload', {
-          roomId: this.roomId,
-          sessionId: client.sessionId,
-          message,
-        });
-        return;
-      }
-
-      logger.info('PixelOffice player moved', {
-        roomId: this.roomId,
-        sessionId: client.sessionId,
-        x: player.x,
-        y: player.y,
-        raw: message,
-      });
-    });
+      },
+    );
   }
 
   onJoin(client: Client) {
@@ -176,7 +179,8 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
       sessionId: client.sessionId,
       remainingClients,
       players: this.state.players.size,
-      status: remainingClients > 0 ? 'Room stays alive' : 'Room will dispose after 5 min of inactivity',
+      status:
+        remainingClients > 0 ? 'Room stays alive' : 'Room will dispose after 5 min of inactivity',
     });
   }
 
