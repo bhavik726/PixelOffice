@@ -1,0 +1,23 @@
+# Create this file in the Metaverse root folder
+```
+Paste this content:
+```
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+**/.env
+
+# Build outputs
+dist/
+**/dist/
+build/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
