@@ -13,6 +13,15 @@ export async function getPublicRooms(req: Request, res: Response) {
   }
 }
 
+export async function getAllRooms(req: Request, res: Response) {
+  try {
+    const rooms = await roomService.getAllRooms();
+    res.json(rooms);
+  } catch (err: unknown) {
+    res.status(400).json({ message: toErrorMessage(err, 'Failed to get rooms') });
+  }
+}
+
 export async function createRoom(req: AuthRequest, res: Response) {
   const { name, description, type, password } = req.body;
   const userId = req.user?.id || req.user?.sub;

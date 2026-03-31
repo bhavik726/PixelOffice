@@ -1,10 +1,17 @@
 import { Router } from 'express';
-import { getPublicRooms, createRoom, joinRoom, getRoomById } from '../controllers/room.controller';
+import {
+  getPublicRooms,
+  createRoom,
+  joinRoom,
+  getRoomById,
+  getAllRooms,
+} from '../controllers/room.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
 
 router.get('/public', getPublicRooms);
+router.get('/', authMiddleware, getAllRooms);
 router.post('/create', authMiddleware, createRoom);
 router.post('/join', authMiddleware, joinRoom);
 router.get('/:id', getRoomById);

@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lobby · Pixel Office</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #050608;
+        --card-bg: #111827;
+        --border: #1f2937;
+        --accent: #22c55e;
+        --accent-soft: rgba(34, 197, 94, 0.12);
+        --text: #f9fafb;
+        --muted: #9ca3af;
+        --danger: #f97373;
+        --shadow: rgba(0, 0, 0, 0.75);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top, #111827 0, var(--bg) 55%);
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+        color: var(--text);
+        display: flex;
+        justify-content: center;
+        padding: 24px 16px;
+      }
+
+      .wrap {
+        width: 100%;
+        max-width: 980px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      .title {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 650;
+        letter-spacing: 0.01em;
+      }
+
+      .subtitle {
+        margin: 2px 0 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .logout {
+        border-radius: 999px;
+        border: 1px solid rgba(31, 41, 55, 0.9);
+        background: rgba(15, 23, 42, 0.85);
+        color: var(--muted);
+        padding: 10px 14px;
+        cursor: pointer;
+        transition: color 0.15s ease;
+      }
+
+      .logout:hover {
+        color: var(--text);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .card {
+        background: linear-gradient(145deg, #020617, #020617, #020617, #020617);
+        border-radius: 18px;
+        padding: 18px;
+        border: 1px solid var(--border);
+        box-shadow:
+          0 18px 40px var(--shadow),
+          0 0 0 1px rgba(15, 23, 42, 0.7);
+      }
+
+      .card h2 {
+        margin: 0 0 6px;
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .card p {
+        margin: 0 0 14px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .button {
+        width: 100%;
+        border-radius: 999px;
+        border: 0;
+        padding: 11px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        background: linear-gradient(135deg, var(--accent), #22d3ee);
+        color: #020617;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        box-shadow:
+          0 12px 25px rgba(16, 185, 129, 0.4),
+          0 0 0 1px rgba(5, 46, 22, 0.5);
+        transition: filter 0.15s ease, transform 0.1s ease;
+      }
+
+      .button:disabled {
+        cursor: default;
+        opacity: 0.85;
+        filter: grayscale(0.2);
+      }
+
+      .button:hover:not(:disabled) {
+        filter: brightness(1.05);
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 10px;
+      }
+
+      label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        padding: 10px 12px;
+        font-size: 14px;
+        background: radial-gradient(circle at top, #020617, #020617);
+        color: var(--text);
+        outline: none;
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 84px;
+      }
+
+      input:focus,
+      textarea:focus {
+        border-color: rgba(34, 197, 94, 0.9);
+        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.18);
+      }
+
+      .error {
+        color: var(--danger);
+        font-size: 12px;
+        margin-top: 10px;
+        white-space: pre-wrap;
+      }
+
+      .success {
+        color: var(--accent);
+        font-size: 12px;
+        margin-top: 10px;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 8px;
+        padding: 4px;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(31, 41, 55, 0.9);
+        border-radius: 999px;
+        margin-bottom: 12px;
+      }
+
+      .tab {
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 14px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .tab[data-active="true"] {
+        background: radial-gradient(circle at top, var(--accent-soft), rgba(15, 23, 42, 0.9));
+        color: var(--text);
+        box-shadow:
+          0 0 0 1px rgba(34, 197, 94, 0.18),
+          0 6px 14px rgba(0, 0, 0, 0.8);
+      }
+
+      .rooms {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .room-card {
+        border-radius: 14px;
+        border: 1px solid rgba(31, 41, 55, 0.9);
+        background: rgba(2, 6, 23, 0.35);
+        padding: 12px;
+        cursor: pointer;
+        transition: border-color 0.15s ease;
+      }
+
+      .room-card:hover {
+        border-color: rgba(34, 197, 94, 0.55);
+      }
+
+      .room-top {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        justify-content: space-between;
+      }
+
+      .room-name {
+        font-weight: 700;
+        font-size: 14px;
+      }
+
+      .room-desc {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .lock-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: rgba(249, 250, 251, 0.9);
+        font-size: 12px;
+      }
+
+      .password-inline {
+        margin-top: 10px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .password-inline input {
+        border-radius: 12px;
+        flex: 1;
+      }
+
+      .mini-btn {
+        border: 1px solid rgba(31, 41, 55, 0.9);
+        background: rgba(15, 23, 42, 0.85);
+        color: var(--text);
+        border-radius: 12px;
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: filter 0.15s ease;
+      }
+
+      .mini-btn:disabled {
+        cursor: default;
+        opacity: 0.85;
+      }
+
+      .mini-btn:hover:not(:disabled) {
+        filter: brightness(1.05);
+      }
+
+      .spinner {
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        border-top-color: rgba(34, 197, 94, 1);
+        animation: spin 0.7s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topbar">
+        <div>
+          <h1 class="title">Pixel Office Lobby</h1>
+          <p class="subtitle">Choose a room to enter</p>
+        </div>
+
+        <button class="logout" id="logoutBtn" type="button">Logout</button>
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>Public Lobby</h2>
+          <p>Always online. Join with one click.</p>
+          <button class="button" id="publicConnectBtn" type="button">
+            <span id="publicConnectLabel">Connect to Public Lobby</span>
+            <span id="publicConnectSpinner" class="spinner" style="display: none"></span>
+          </button>
+          <div class="error" id="publicError" style="display: none"></div>
+        </section>
+
+        <section class="card">
+          <h2>Private Rooms</h2>
+          <p>Create a room or find one from the list.</p>
+
+          <div class="tabs" id="privateTabs">
+            <button class="tab" data-mode="create" data-active="true" type="button">
+              Create Room
+            </button>
+            <button class="tab" data-mode="find" data-active="false" type="button">
+              Find Room
+            </button>
+          </div>
+
+          <div id="privateCreatePanel">
+            <form id="createRoomForm">
+              <div class="field">
+                <label for="roomName">Room Name</label>
+                <input id="roomName" name="roomName" placeholder="e.g. Team Alpha" required />
+              </div>
+
+              <div class="field">
+                <label for="roomDesc">Description (optional)</label>
+                <textarea id="roomDesc" name="roomDesc" placeholder="What is this room for?"></textarea>
+              </div>
+
+              <div class="field">
+                <label for="roomPassword">Password (optional)</label>
+                <input id="roomPassword" name="roomPassword" placeholder="Leave empty if not needed" />
+              </div>
+
+              <button class="button" id="createRoomBtn" type="submit">
+                <span id="createRoomLabel">Create & Join</span>
+                <span id="createRoomSpinner" class="spinner" style="display: none"></span>
+              </button>
+              <div class="error" id="createRoomError" style="display: none"></div>
+            </form>
+          </div>
+
+          <div id="privateFindPanel" style="display: none">
+            <div class="row" style="justify-content: space-between; margin-bottom: 10px">
+              <div style="color: var(--muted); font-size: 13px">Available private rooms</div>
+              <button class="mini-btn" id="refreshRoomsBtn" type="button">Refresh</button>
+            </div>
+
+            <div class="error" id="findRoomsError" style="display: none"></div>
+
+            <div class="rooms" id="roomsList"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script type="module" src="./src/lobby.js"></script>
+  </body>
+</html>
+

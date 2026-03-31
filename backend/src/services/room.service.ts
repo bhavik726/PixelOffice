@@ -46,6 +46,33 @@ export async function getPublicRooms(): Promise<Room[]> {
   return data || [];
 }
 
+export async function getAllRooms(): Promise<Room[]> {
+  // IMPORTANT: never return real private room passwords to the frontend.
+  // We only return a "locked" marker so the UI knows a password is required.
+  const { data, error } = await supabase.from('rooms').select('id,name,description,type,password');
+
+  throwIfSupabaseError(error);
+
+  return (data || []).map((room) => {
+    const isPrivate = room.type === 'private';
+    const rawPassword = room.password;
+    const locked = isPrivate && typeof rawPassword === 'string' && rawPassword.trim().length > 0;
+
+    const masked: Partial<Room> = {
+      id: room.id,
+      name: room.name,
+      description: room.description ?? '',
+      type: room.type,
+    };
+
+    if (locked) {
+      masked.password = '__LOCKED__';
+    }
+
+    return masked as Room;
+  });
+}
+
 export async function createRoom(
   name: string,
   description: string,

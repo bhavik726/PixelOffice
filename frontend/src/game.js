@@ -3,8 +3,8 @@ import { Client, getStateCallbacks as _getStateCallbacks } from "colyseus.js";
 
 const COLYSEUS_SERVER = "ws://127.0.0.1:4000";
 const ROOM_NAME = "pixel-office";
-const ROOM_ID_STORAGE_KEY = "pixel-office-room-id";
 const AUTH_TOKEN_STORAGE_KEY = "supabase_access_token";
+const COLYSEUS_ROOM_ID_STORAGE_KEY = "colyseus_room_id";
 
 function getHttpBaseFromWs(wsUrl) {
   // ws://host:port -> http://host:port ; wss:// -> https://
@@ -277,20 +277,19 @@ async function create() {
     const token = window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
     if (!token) {
       console.error("No auth token found. Redirecting to /login");
-      window.location.href = "/login";
+      window.location.href = "/login.html";
       return;
     }
-    const availableRooms = await getAvailableRoomsCompat(client, ROOM_NAME);
-    const targetRoom = availableRooms[0];
 
-    if (targetRoom?.roomId) {
-      room = await client.joinById(targetRoom.roomId, { token });
-    } else {
-      room = await client.create(ROOM_NAME, { token });
+    const colyseusRoomId = window.localStorage.getItem(COLYSEUS_ROOM_ID_STORAGE_KEY);
+    if (!colyseusRoomId) {
+      window.location.href = "/lobby.html";
+      return;
     }
 
-    window.localStorage.setItem(ROOM_ID_STORAGE_KEY, room.roomId);
-    console.log("✓ Connected to Colyseus room:", ROOM_NAME, room.roomId);
+    // Join the exact Colyseus room id chosen on the lobby page
+    room = await client.joinById(colyseusRoomId, { token });
+    console.log("✓ Connected to Colyseus room:", colyseusRoomId);
 
     room.onStateChange((state) => {
       if (!state?.players) return;
@@ -314,9 +313,8 @@ async function create() {
     if (error && typeof error === "object" && "message" in error) {
       const msg = String(error.message || "");
       if (msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("token")) {
-        window.alert("Your session has expired. Please log in again.");
         window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
-        window.location.href = "/login";
+        window.location.href = "/login.html";
       }
     }
   }

@@ -81,8 +81,8 @@ async function handleLogin({ email, password }) {
     // ignore storage failure; user just won't stay logged in
   }
 
-  // Redirect to game entry (index.html -> main.js -> game)
-  window.location.href = "/";
+  // Redirect to lobby (user chooses a room)
+  window.location.href = "/lobby.html";
 }
 
 async function handleSignup({ email, password, username }) {
@@ -148,7 +148,7 @@ formEl.addEventListener("submit", async (event) => {
 // If the user is already authenticated, send them straight to the game.
 try {
   if (window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY)) {
-    window.location.href = "/";
+    window.location.href = "/lobby.html";
   }
 } catch {
   // ignore
