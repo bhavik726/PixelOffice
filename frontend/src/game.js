@@ -4,6 +4,7 @@ import { Client, getStateCallbacks as _getStateCallbacks } from "colyseus.js";
 const COLYSEUS_SERVER = "ws://127.0.0.1:4000";
 const ROOM_NAME = "pixel-office";
 const ROOM_ID_STORAGE_KEY = "pixel-office-room-id";
+const AUTH_TOKEN_STORAGE_KEY = "supabase_access_token";
 
 function getHttpBaseFromWs(wsUrl) {
   // ws://host:port -> http://host:port ; wss:// -> https://
@@ -53,24 +54,51 @@ let playersListenersBound = false;
 
 const playersMap = new Map();
 const playerRects = new Map();
+const nameTexts = new Map();
 
-function updatePlayerPosition(sessionId, x, y) {
-  playersMap.set(sessionId, { x, y });
+function updatePlayerPosition(sessionId, x, y, username, userId) {
+  const existing = playersMap.get(sessionId) || {};
+  playersMap.set(sessionId, {
+    x,
+    y,
+    username: username ?? existing.username,
+    userId: userId ?? existing.userId,
+  });
 
   if (!room) return;
 
-  if (sessionId === room.sessionId) return;
+  const isLocal = sessionId === room.sessionId;
 
   let rect = playerRects.get(sessionId);
+  let nameText = nameTexts.get(sessionId);
 
   if (!rect && gameScene) {
-    rect = gameScene.add.rectangle(x, y, 40, 40, 0x3399ff);
+    rect = isLocal
+      ? player
+      : gameScene.add.rectangle(x, y, 40, 40, 0x3399ff);
     playerRects.set(sessionId, rect);
+  }
+
+  const label = username || userId || sessionId.slice(0, 8);
+
+  if (!nameText && gameScene) {
+    nameText = gameScene.add.text(x, y - 30, label, {
+      color: "#ffffff",
+      fontSize: "12px",
+    });
+    nameText.setOrigin(0.5, 1);
+    nameTexts.set(sessionId, nameText);
+  } else if (nameText) {
+    nameText.setText(label);
   }
 
   if (rect) {
     rect.x = x;
     rect.y = y;
+  }
+  if (nameText) {
+    nameText.x = x;
+    nameText.y = y - 30;
   }
 }
 
@@ -80,12 +108,19 @@ function removePlayer(sessionId) {
 
   if (sessionId === room.sessionId) {
     playerRects.delete(sessionId);
+    const nameText = nameTexts.get(sessionId);
+    if (nameText) nameText.destroy();
+    nameTexts.delete(sessionId);
     return;
   }
 
   const rect = playerRects.get(sessionId);
   if (rect) rect.destroy();
   playerRects.delete(sessionId);
+
+  const nameText = nameTexts.get(sessionId);
+  if (nameText) nameText.destroy();
+  nameTexts.delete(sessionId);
 }
 
 function updateDebugOverlay() {
@@ -93,7 +128,12 @@ function updateDebugOverlay() {
 
   const lines = [`Players: ${playersMap.size}`];
   playersMap.forEach((pos, sessionId) => {
-    lines.push(`${sessionId.slice(0, 8)}: (${Math.round(pos.x)}, ${Math.round(pos.y)})`);
+    lines.push(
+      `${pos.username || sessionId.slice(0, 8)} (${sessionId.slice(
+        0,
+        8,
+      )}): (${Math.round(pos.x)}, ${Math.round(pos.y)})`,
+    );
   });
 
   debugText.setText(lines.join("\n"));
@@ -103,23 +143,36 @@ function bindPlayerChange(statePlayer, sessionId) {
   // For Colyseus 0.15+ with @colyseus/schema, listen to individual fields
   if (typeof statePlayer.listen === "function") {
     statePlayer.listen("x", (newX) => {
-      const pos = playersMap.get(sessionId) || { x: newX, y: 0 };
-      pos.x = newX;
-      playersMap.set(sessionId, pos);
-      const rect = playerRects.get(sessionId);
-      if (rect && sessionId !== room.sessionId) {
-        rect.x = newX;
-      }
+      const current = playersMap.get(sessionId) || {};
+      updatePlayerPosition(
+        sessionId,
+        newX,
+        current.y ?? 0,
+        current.username,
+        current.userId,
+      );
       updateDebugOverlay();
     });
     statePlayer.listen("y", (newY) => {
-      const pos = playersMap.get(sessionId) || { x: 0, y: newY };
-      pos.y = newY;
-      playersMap.set(sessionId, pos);
-      const rect = playerRects.get(sessionId);
-      if (rect && sessionId !== room.sessionId) {
-        rect.y = newY;
-      }
+      const current = playersMap.get(sessionId) || {};
+      updatePlayerPosition(
+        sessionId,
+        current.x ?? 0,
+        newY,
+        current.username,
+        current.userId,
+      );
+      updateDebugOverlay();
+    });
+    statePlayer.listen("username", (newUsername) => {
+      const current = playersMap.get(sessionId) || {};
+      updatePlayerPosition(
+        sessionId,
+        current.x ?? 0,
+        current.y ?? 0,
+        newUsername,
+        current.userId,
+      );
       updateDebugOverlay();
     });
     return;
@@ -127,7 +180,13 @@ function bindPlayerChange(statePlayer, sessionId) {
 
   // Fallback for older Colyseus
   statePlayer.onChange = () => {
-    updatePlayerPosition(sessionId, statePlayer.x, statePlayer.y);
+    updatePlayerPosition(
+      sessionId,
+      statePlayer.x,
+      statePlayer.y,
+      statePlayer.username || statePlayer.name,
+      statePlayer.userId,
+    );
     updateDebugOverlay();
   };
 }
@@ -140,7 +199,13 @@ function bindPlayerListeners() {
 
   const onPlayerAdd = (statePlayer, sessionId) => {
     console.log("[onAdd] sessionId:", sessionId, "mine:", room.sessionId);
-    updatePlayerPosition(sessionId, statePlayer.x, statePlayer.y);
+    updatePlayerPosition(
+      sessionId,
+      statePlayer.x,
+      statePlayer.y,
+      statePlayer.username || statePlayer.name,
+      statePlayer.userId,
+    );
     bindPlayerChange(statePlayer, sessionId);
     updateDebugOverlay();
   };
@@ -180,15 +245,48 @@ async function create() {
     fontSize: "14px",
   });
 
+  // Simple logout button pinned to top-right
+  const logoutText = this.add
+    .text(780, 20, "Logout", {
+      color: "#9ca3af",
+      fontSize: "12px",
+      backgroundColor: "rgba(15,23,42,0.6)",
+      padding: { left: 8, right: 8, top: 4, bottom: 4 },
+    })
+    .setOrigin(1, 0.5)
+    .setScrollFactor(0)
+    .setInteractive({ useHandCursor: true });
+
+  logoutText.on("pointerover", () => {
+    logoutText.setColor("#ffffff");
+  });
+  logoutText.on("pointerout", () => {
+    logoutText.setColor("#9ca3af");
+  });
+  logoutText.on("pointerup", () => {
+    try {
+      window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    window.location.href = "/login.html";
+  });
+
   try {
     const client = new Client(COLYSEUS_SERVER);
+    const token = window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+    if (!token) {
+      console.error("No auth token found. Redirecting to /login");
+      window.location.href = "/login";
+      return;
+    }
     const availableRooms = await getAvailableRoomsCompat(client, ROOM_NAME);
     const targetRoom = availableRooms[0];
 
     if (targetRoom?.roomId) {
-      room = await client.joinById(targetRoom.roomId);
+      room = await client.joinById(targetRoom.roomId, { token });
     } else {
-      room = await client.create(ROOM_NAME);
+      room = await client.create(ROOM_NAME, { token });
     }
 
     window.localStorage.setItem(ROOM_ID_STORAGE_KEY, room.roomId);
@@ -212,6 +310,15 @@ async function create() {
     });
   } catch (error) {
     console.error("Failed to connect to Colyseus:", error);
+    // Handle invalid / expired token
+    if (error && typeof error === "object" && "message" in error) {
+      const msg = String(error.message || "");
+      if (msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("token")) {
+        window.alert("Your session has expired. Please log in again.");
+        window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+        window.location.href = "/login";
+      }
+    }
   }
 }
 

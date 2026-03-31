@@ -9,6 +9,9 @@ class PlayerSchema extends Schema {
   @type('string')
   id = '';
 
+  @type('string')
+  userId = '';
+
   @type('number')
   x = 400;
 
@@ -16,10 +19,14 @@ class PlayerSchema extends Schema {
   y = 300;
 
   @type('string')
+  username = '';
+
+  // Kept for backward-compat with any existing code that expects `name`.
+  @type('string')
   name = '';
 
-  @type('number')
-  avatarId = 0;
+  @type('string')
+  avatarId = '';
 }
 
 class PixelOfficeState extends Schema {
@@ -145,20 +152,41 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
     });
   }
 
-  onJoin(client: Client) {
+  async onJoin(client: Client, options: { token?: string } = {}) {
     this.touchActivity();
     this.clearEmptyRoomTimeout();
 
-    // Assign a random available avatar
-    const usedAvatars = [...this.state.players.values()].map((player) => player.avatarId);
-    const avatarId = getRandomAvailableAvatar(usedAvatars);
+    const token = options?.token;
+    if (!token) {
+      throw new Error('Missing auth token');
+    }
+
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data?.user) {
+      throw new Error('Invalid or expired auth token');
+    }
+
+    const user = data.user;
+    const username =
+      (user.user_metadata as { username?: string; display_name?: string } | null)?.username ??
+      (user.user_metadata as { username?: string; display_name?: string } | null)?.display_name ??
+      user.email ??
+      'Anonymous';
+
+    // Assign a random available avatar number, but store it as a string in schema.
+    const usedAvatarIds = [...this.state.players.values()]
+      .map((p) => (typeof p.avatarId === 'string' ? Number(p.avatarId) : Number(p.avatarId)))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const avatarNumber = getRandomAvailableAvatar(usedAvatarIds);
 
     const player = new PlayerSchema();
     player.id = client.sessionId;
-    player.x = 400;
-    player.y = 300;
-    player.name = '';
-    player.avatarId = avatarId;
+    player.userId = user.id;
+    player.x = 200 + (this.state.players.size % 6) * 70;
+    player.y = 200 + Math.floor(this.state.players.size / 6) * 70;
+    player.username = username;
+    player.name = username;
+    player.avatarId = String(avatarNumber);
 
     this.state.players.set(client.sessionId, player);
     logger.info('PixelOffice client joined (room will stay alive)', {
