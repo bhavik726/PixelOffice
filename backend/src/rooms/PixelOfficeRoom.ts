@@ -38,9 +38,16 @@ const ROOM_INACTIVITY_TIMEOUT_MS = Number(env.ROOM_INACTIVITY_TIMEOUT_MS || '300
 
 export class PixelOfficeRoom extends Room<PixelOfficeState> {
   private dbRoomId: string | null = null;
+  /**
+   * 'public'  → room is permanent; never auto-dispose when empty.
+   * 'private' → room is ephemeral; dispose + full DB delete after 5 min empty.
+   */
+  private roomVisibility: 'public' | 'private' = 'public';
   private lastActivity = Date.now();
   private disposeRequested = false;
   private emptyRoomTimeout: NodeJS.Timeout | null = null;
+
+  // ─── helpers ────────────────────────────────────────────────────────────────
 
   private getPlayerLabel(sessionId: string) {
     const sessionIds = [...this.state.players.keys()];
@@ -58,30 +65,47 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
     this.emptyRoomTimeout = null;
   }
 
+  /**
+   * Schedules auto-dispose for PRIVATE rooms only.
+   * Public rooms are permanent and must never be auto-disposed.
+   */
   private scheduleEmptyRoomDispose() {
+    // Public rooms stay alive forever — always available for anyone to join.
+    if (this.roomVisibility === 'public') {
+      logger.info('PixelOffice public room empty but staying alive (permanent)', {
+        roomId: this.roomId,
+        dbRoomId: this.dbRoomId,
+      });
+      return;
+    }
+
     if (this.disposeRequested) return;
-    if (this.clients.length > 0) return;
+    if (this.state.players.size > 0) return;
 
     this.clearEmptyRoomTimeout();
     const scheduledAt = Date.now();
 
     this.emptyRoomTimeout = setTimeout(() => {
       if (this.disposeRequested) return;
-      if (this.clients.length > 0) return;
+      if (this.state.players.size > 0) return;
 
       const inactivityMs = Date.now() - this.lastActivity;
-      logger.info('PixelOffice cleanup triggered (room empty + inactive)', {
+      logger.info('PixelOffice private room cleanup triggered (empty + inactive 5 min)', {
         roomId: this.roomId,
         dbRoomId: this.dbRoomId,
-        clients: this.clients.length,
         inactivityMs,
         timeoutMs: ROOM_INACTIVITY_TIMEOUT_MS,
-        scheduledForMs: ROOM_INACTIVITY_TIMEOUT_MS,
         scheduledSinceMs: Date.now() - scheduledAt,
       });
 
       void this.safeDispose();
     }, ROOM_INACTIVITY_TIMEOUT_MS);
+
+    logger.info('PixelOffice private room empty — will be deleted in 5 min if still empty', {
+      roomId: this.roomId,
+      dbRoomId: this.dbRoomId,
+      timeoutMs: ROOM_INACTIVITY_TIMEOUT_MS,
+    });
   }
 
   private async safeDispose() {
@@ -89,7 +113,7 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
     this.disposeRequested = true;
 
     try {
-      // We manage disposal ourselves while active; once cleanup triggers, let Colyseus dispose.
+      // Enable Colyseus auto-dispose then force disconnect to trigger onDispose.
       this.autoDispose = true;
       this.disconnect();
     } catch (err) {
@@ -101,31 +125,39 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
     }
   }
 
+  // ─── lifecycle ───────────────────────────────────────────────────────────────
+
   onCreate(options: unknown) {
     this.autoDispose = false;
     this.setState(new PixelOfficeState());
     this.touchActivity();
 
-    if (typeof options === 'object' && options !== null && 'dbRoomId' in options) {
-      const dbRoomId = (options as { dbRoomId?: unknown }).dbRoomId;
-      if (typeof dbRoomId === 'string' && dbRoomId.trim().length > 0) {
-        this.dbRoomId = dbRoomId;
+    if (typeof options === 'object' && options !== null) {
+      const opts = options as Record<string, unknown>;
+
+      if (typeof opts.dbRoomId === 'string' && opts.dbRoomId.trim().length > 0) {
+        this.dbRoomId = opts.dbRoomId.trim();
+      }
+
+      if (opts.visibility === 'private') {
+        this.roomVisibility = 'private';
       }
     }
 
-    logger.info('PixelOffice room created', { roomId: this.roomId, dbRoomId: this.dbRoomId });
-
-    // TODO: support DB room metadata -> Colyseus room options mapping for multi-room scaling.
+    logger.info('PixelOffice room created', {
+      roomId: this.roomId,
+      dbRoomId: this.dbRoomId,
+      visibility: this.roomVisibility,
+    });
 
     this.onMessage('move', (client, data: { x?: number; y?: number }) => {
       this.touchActivity();
 
       const player = this.state.players.get(client.sessionId);
       if (!player) {
-        logger.warn('PixelOffice move received for missing player', {
+        logger.warn('PixelOffice move received for unknown player', {
           roomId: this.roomId,
           sessionId: client.sessionId,
-          data,
         });
         return;
       }
@@ -141,14 +173,16 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
 
       player.x = data.x;
       player.y = data.y;
+    });
 
-      logger.info('PixelOffice player moved', {
-        roomId: this.roomId,
-        sessionId: client.sessionId,
-        playerLabel: this.getPlayerLabel(client.sessionId),
-        x: player.x,
-        y: player.y,
-      });
+    this.onMessage('chat', (client, data: { text?: string }) => {
+      this.touchActivity();
+      if (typeof data.text !== 'string' || !data.text.trim()) return;
+
+      const player = this.state.players.get(client.sessionId);
+      const sender = player?.username ?? client.sessionId;
+
+      this.broadcast('chat', { from: sender, text: data.text.trim() });
     });
   }
 
@@ -167,15 +201,12 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
     }
 
     const user = data.user;
-    const username =
-      (user.user_metadata as { username?: string; display_name?: string } | null)?.username ??
-      (user.user_metadata as { username?: string; display_name?: string } | null)?.display_name ??
-      user.email ??
-      'Anonymous';
+    const meta = user.user_metadata as { username?: string; display_name?: string } | null;
+    const username = meta?.username ?? meta?.display_name ?? user.email ?? 'Anonymous';
 
-    // Assign a random available avatar number, but store it as a string in schema.
+    // Pick a random avatar not currently in use.
     const usedAvatarIds = [...this.state.players.values()]
-      .map((p) => (typeof p.avatarId === 'string' ? Number(p.avatarId) : Number(p.avatarId)))
+      .map((p) => Number(p.avatarId))
       .filter((n) => Number.isFinite(n) && n > 0);
     const avatarNumber = getRandomAvailableAvatar(usedAvatarIds);
 
@@ -189,13 +220,14 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
     player.avatarId = String(avatarNumber);
 
     this.state.players.set(client.sessionId, player);
-    logger.info('PixelOffice client joined (room will stay alive)', {
+
+    logger.info('PixelOffice player joined', {
       roomId: this.roomId,
       dbRoomId: this.dbRoomId,
+      visibility: this.roomVisibility,
       sessionId: client.sessionId,
-      playerLabel: this.getPlayerLabel(client.sessionId),
-      connectedClients: this.clients.length,
-      players: this.state.players.size,
+      username,
+      totalPlayers: this.state.players.size,
     });
   }
 
@@ -203,19 +235,26 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
     this.touchActivity();
     const playerLabel = this.getPlayerLabel(client.sessionId);
     this.state.players.delete(client.sessionId);
-    const remainingClients = this.clients.length - 1; // This client is still counted until handler completes
-    logger.info('PixelOffice client left', {
+
+    // Use players map size (already updated above) as the authoritative count.
+    const remaining = this.state.players.size;
+
+    logger.info('PixelOffice player left', {
       roomId: this.roomId,
       dbRoomId: this.dbRoomId,
+      visibility: this.roomVisibility,
       sessionId: client.sessionId,
       playerLabel,
-      remainingClients,
-      players: this.state.players.size,
+      remainingPlayers: remaining,
       status:
-        remainingClients > 0 ? 'Room stays alive' : 'Room will dispose after 5 min of inactivity',
+        remaining > 0
+          ? 'Room still active'
+          : this.roomVisibility === 'public'
+            ? 'Public room stays alive (permanent)'
+            : 'Private room will be deleted in 5 min if still empty',
     });
 
-    if (remainingClients <= 0) {
+    if (remaining === 0) {
       this.scheduleEmptyRoomDispose();
     }
   }
@@ -223,22 +262,55 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
   async onDispose() {
     this.clearEmptyRoomTimeout();
 
-    logger.info('PixelOffice room disposed', { roomId: this.roomId, dbRoomId: this.dbRoomId });
+    logger.info('PixelOffice room disposing', {
+      roomId: this.roomId,
+      dbRoomId: this.dbRoomId,
+      visibility: this.roomVisibility,
+    });
 
     if (!this.dbRoomId) return;
 
     try {
-      const { error } = await supabase
-        .from('rooms')
-        .update({ colyseus_room_id: null })
-        .eq('id', this.dbRoomId);
+      if (this.roomVisibility === 'private') {
+        // Full cleanup: remove participants first (FK constraint), then the room row.
+        const { error: participantsError } = await supabase
+          .from('room_participants')
+          .delete()
+          .eq('room_id', this.dbRoomId);
 
-      if (error) {
-        logger.warn('Failed to clear DB room colyseus_room_id on dispose', {
-          roomId: this.roomId,
-          dbRoomId: this.dbRoomId,
-          error: error.message,
-        });
+        if (participantsError) {
+          logger.warn('Failed to delete room_participants on private room dispose', {
+            dbRoomId: this.dbRoomId,
+            error: participantsError.message,
+          });
+        }
+
+        const { error: roomDeleteError } = await supabase
+          .from('rooms')
+          .delete()
+          .eq('id', this.dbRoomId);
+
+        if (roomDeleteError) {
+          logger.warn('Failed to delete private room DB record on dispose', {
+            dbRoomId: this.dbRoomId,
+            error: roomDeleteError.message,
+          });
+        } else {
+          logger.info('Private room fully removed from DB', { dbRoomId: this.dbRoomId });
+        }
+      } else {
+        // Public room: just clear the Colyseus mapping so on next join it re-creates.
+        const { error } = await supabase
+          .from('rooms')
+          .update({ colyseus_room_id: null })
+          .eq('id', this.dbRoomId);
+
+        if (error) {
+          logger.warn('Failed to clear colyseus_room_id on public room dispose', {
+            dbRoomId: this.dbRoomId,
+            error: error.message,
+          });
+        }
       }
     } catch (err) {
       logger.warn('DB sync during room dispose failed', {

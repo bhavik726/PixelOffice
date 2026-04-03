@@ -8,6 +8,7 @@ import { setupColyseusRooms } from './rooms';
 import { errorHandler } from './middleware/error.handler';
 import { env } from './config/env';
 import { logger } from './utils/logger';
+import { initializeRooms } from './services/room.service';
 
 const app = express();
 app.use(cors());
@@ -27,10 +28,10 @@ const colyseusServer = new ColyseusServer({
   server,
 });
 
-// Register Colyseus rooms
+// Register Colyseus room handlers
 setupColyseusRooms(colyseusServer);
 
-// Colyseus monitor (admin UI)
+// Colyseus monitor (admin UI at /colyseus)
 app.use('/colyseus', monitor());
 
 const PORT = Number(env.PORT);
@@ -43,6 +44,7 @@ server.on('error', (error: NodeJS.ErrnoException) => {
     port: PORT,
     host: HOST,
   });
+  process.exit(1);
 });
 
 server.listen(PORT, HOST, () => {
@@ -51,5 +53,13 @@ server.listen(PORT, HOST, () => {
     host: HOST,
     serverUrl: env.SERVER_URL,
     monitorPath: '/colyseus',
+  });
+
+  // Seed public rooms and clear stale Colyseus mappings from the previous process.
+  // This runs after listen() so the Colyseus matchMaker is fully ready.
+  initializeRooms().catch((err) => {
+    logger.error('Room initialization failed on startup', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   });
 });
