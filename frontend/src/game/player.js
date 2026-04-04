@@ -12,9 +12,9 @@ export default class Player {
     // Create a small physics rectangle as the player sprite
     this.sprite = scene.add.rectangle(x, y, 20, 20, 0xff7f00);
     scene.physics.add.existing(this.sprite);
-    this.sprite.setTint(0xff7f00);
-    this.sprite.setCollideWorldBounds(true);
-    this.sprite.setBounce(0);
+    this.sprite.setFillStyle(0xff7f00, 1);
+    this.sprite.body.setCollideWorldBounds(true);
+    this.sprite.body.setBounce(0);
     
     // Store references for easy access
     this.sprite.isPlayer = true;
@@ -60,7 +60,7 @@ export default class Player {
     }
     
     // Apply velocity to sprite
-    this.sprite.setVelocity(this.velocityX, this.velocityY);
+    this.sprite.body.setVelocity(this.velocityX, this.velocityY);
   }
   
   getPosition() {

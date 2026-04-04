@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import Player from '../player';
+import { setupCollisions } from '../handlers/collision/collisionHandler';
 
 /**
  * Main Game Scene
@@ -47,16 +48,15 @@ export default class MainScene extends Phaser.Scene {
     // Create the tilemap from the loaded JSON
     this.tilemap = this.make.tilemap({ key: 'pixel-office-map' });
     
-    // Add tilesets to the map (filter out null values for external tilesets)
-    // These must match the names in the JSON file
+    // Bind each tileset by explicit firstgid to avoid gid-range mismatch issues.
     const tilesets = [
-      this.tilemap.addTilesetImage('FloorAndGround', 'FloorAndGround'),
-      this.tilemap.addTilesetImage('Modern_Office_Black_Shadow', 'Modern_Office_Black_Shadow'),
-      this.tilemap.addTilesetImage('chair', 'chair'),
-      this.tilemap.addTilesetImage('Basement', 'Basement'),
-      this.tilemap.addTilesetImage('Generic', 'Generic'),
-      this.tilemap.addTilesetImage('Room_Builder_Walls', 'Room_Builder_Walls'),
-    ].filter(ts => ts !== null);  // Remove null tilesets (external references)
+      this.tilemap.addTilesetImage('FloorAndGround', 'FloorAndGround', 32, 32, 0, 0, 1),
+      this.tilemap.addTilesetImage('Modern_Office_Black_Shadow', 'Modern_Office_Black_Shadow', 32, 32, 0, 0, 2561),
+      this.tilemap.addTilesetImage('chair', 'chair', 32, 64, 0, 0, 3409),
+      this.tilemap.addTilesetImage('Modern_Office_Black_Shadow_2', 'Modern_Office_Black_Shadow', 32, 32, 0, 0, 3432),
+      this.tilemap.addTilesetImage('Basement', 'Basement', 32, 32, 0, 0, 4280),
+      this.tilemap.addTilesetImage('Generic', 'Generic', 32, 32, 0, 0, 5080),
+    ].filter((ts) => ts !== null);
     
     // Create all layers from the tilemap
     // Layer order in Tiled determines rendering order
@@ -83,17 +83,7 @@ export default class MainScene extends Phaser.Scene {
       }
       
       this.layers.push(layer);
-      
-      // Set collision on tiles with collides property
-      layer.setCollisionByProperty({ collides: true });
-      
-      // Track collidable layers
-      if (layer.properties?.some(prop => prop.name === 'collides' && prop.value === 'true')) {
-        this.collidableLayers.push(layer);
-      }
     });
-    
-    console.log(`Loaded ${this.layers.length} layers, ${this.collidableLayers.length} with collision`);
 
     this.physics.world.setBounds(0, 0, this.tilemap.widthInPixels, this.tilemap.heightInPixels);
 
@@ -101,11 +91,11 @@ export default class MainScene extends Phaser.Scene {
     const startX = 400;
     const startY = 300;
     this.player = new Player(this, startX, startY);
-    
-    // Add physics collider between player and collidable layers
-    this.collidableLayers.forEach((layer) => {
-      this.physics.add.collider(this.player.sprite, layer);
-    });
+
+    // Setup tile collisions after map/layers/player are ready.
+    this.collidableLayers = setupCollisions(this, this.tilemap, this.player.sprite) || [];
+
+    console.log(`Loaded ${this.layers.length} layers, ${this.collidableLayers.length} with collision`);
     
     // Setup UI
     this.setupUI();
