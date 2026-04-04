@@ -36,6 +36,17 @@ class PixelOfficeState extends Schema {
 
 const ROOM_INACTIVITY_TIMEOUT_MS = Number(env.ROOM_INACTIVITY_TIMEOUT_MS || '300000');
 
+/** Must match frontend `PixelOfficeMap.json` (40×30 tiles @ 32px). */
+const MAP_WIDTH_PX = 40 * 32;
+const MAP_HEIGHT_PX = 30 * 32;
+
+function clampPosition(x: number, y: number): { x: number; y: number } {
+  return {
+    x: Math.max(0, Math.min(MAP_WIDTH_PX, x)),
+    y: Math.max(0, Math.min(MAP_HEIGHT_PX, y)),
+  };
+}
+
 export class PixelOfficeRoom extends Room<PixelOfficeState> {
   private dbRoomId: string | null = null;
   /**
@@ -171,8 +182,9 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
         return;
       }
 
-      player.x = data.x;
-      player.y = data.y;
+      const clamped = clampPosition(data.x, data.y);
+      player.x = clamped.x;
+      player.y = clamped.y;
     });
 
     this.onMessage('chat', (client, data: { text?: string }) => {
@@ -213,8 +225,12 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
     const player = new PlayerSchema();
     player.id = client.sessionId;
     player.userId = user.id;
-    player.x = 200 + (this.state.players.size % 6) * 70;
-    player.y = 200 + Math.floor(this.state.players.size / 6) * 70;
+    const spawn = clampPosition(
+      200 + (this.state.players.size % 6) * 70,
+      200 + Math.floor(this.state.players.size / 6) * 70,
+    );
+    player.x = spawn.x;
+    player.y = spawn.y;
     player.username = username;
     player.name = username;
     player.avatarId = String(avatarNumber);

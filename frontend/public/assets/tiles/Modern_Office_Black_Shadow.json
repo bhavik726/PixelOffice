@@ -1,0 +1,14 @@
+{ "columns":16,
+ "image":"..\/..\/..\/..\/..\/..\/..\/..\/..\/Downloads\/office saman\/Modern_Office_Black_Shadow.png",
+ "imageheight":1696,
+ "imagewidth":512,
+ "margin":0,
+ "name":"Modern_Office_Black_Shadow",
+ "spacing":0,
+ "tilecount":848,
+ "tiledversion":"1.12.1",
+ "tileheight":32,
+ "tilewidth":32,
+ "type":"tileset",
+ "version":"1.10"
+}

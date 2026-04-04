@@ -1,0 +1,14 @@
+{ "columns":1,
+ "image":"..\/..\/..\/..\/..\/..\/..\/..\/..\/Downloads\/office saman\/chair.png",
+ "imageheight":1472,
+ "imagewidth":32,
+ "margin":0,
+ "name":"chair",
+ "spacing":0,
+ "tilecount":46,
+ "tiledversion":"1.12.1",
+ "tileheight":32,
+ "tilewidth":32,
+ "type":"tileset",
+ "version":"1.10"
+}
