@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import Player from '../player';
 import { setupCollisions } from '../handlers/collision/collisionHandler';
+import { createCharacterAnims } from '../animations/CharacterAnimations';
 
 /**
  * Main Game Scene
@@ -39,58 +40,110 @@ export default class MainScene extends Phaser.Scene {
     this.load.image('Basement', '/assets/tiles/Basement.png');
     this.load.image('Generic', '/assets/tiles/Generic.png');
     this.load.image('Room_Builder_Walls', '/assets/tiles/Room_Builder_Walls.png');
+
+    this.load.atlas(
+      'adam',
+      '/assets/character/single/adam.png',
+      '/assets/character/single/adam.json',
+    );
+    this.load.atlas(
+      'ash',
+      '/assets/character/single/ash.png',
+      '/assets/character/single/ash.json',
+    );
+    this.load.atlas(
+      'lucy',
+      '/assets/character/single/lucy.png',
+      '/assets/character/single/lucy.json',
+    );
   }
   
   /**
    * Create the scene (called after preload)
    */
   create() {
-    // Create the tilemap from the loaded JSON
-    this.tilemap = this.make.tilemap({ key: 'pixel-office-map' });
+    // Create the tilemap from the loaded JSON with explicit tile dimensions
+    this.tilemap = this.make.tilemap({
+      key: 'pixel-office-map',
+      tileWidth: 32,
+      tileHeight: 32,
+    });
+    console.log('Available layers in map:', this.tilemap.layers.map((l) => l.name));
+    console.log('Available object layers:', this.tilemap.objects?.map((o) => o.name));
+
+    // Bind tilesets using exact names from Tiled JSON
+    console.log('Tilesets in map:', this.tilemap.tilesets);
     
-    // Bind each tileset by explicit firstgid to avoid gid-range mismatch issues.
-    const tilesets = [
-      this.tilemap.addTilesetImage('FloorAndGround', 'FloorAndGround', 32, 32, 0, 0, 1),
-      this.tilemap.addTilesetImage('Modern_Office_Black_Shadow', 'Modern_Office_Black_Shadow', 32, 32, 0, 0, 2561),
-      this.tilemap.addTilesetImage('chair', 'chair', 32, 64, 0, 0, 3409),
-      this.tilemap.addTilesetImage('Modern_Office_Black_Shadow_2', 'Modern_Office_Black_Shadow', 32, 32, 0, 0, 3432),
-      this.tilemap.addTilesetImage('Basement', 'Basement', 32, 32, 0, 0, 4280),
-      this.tilemap.addTilesetImage('Generic', 'Generic', 32, 32, 0, 0, 5080),
-    ].filter((ts) => ts !== null);
+    const tilesets = (this.tilemap.tilesets || [])
+      .map((tilesetData) => {
+        const boundTileset = this.tilemap.addTilesetImage(
+          tilesetData.name,
+          tilesetData.name,
+        );
+
+        if (!boundTileset) {
+          console.warn(
+            `Failed to bind tileset "${tilesetData.name}" (firstgid: ${tilesetData.firstgid})`,
+          );
+        } else {
+          console.log(`Tileset bound: "${tilesetData.name}" (firstgid: ${tilesetData.firstgid})`);
+        }
+
+        return boundTileset;
+      })
+      .filter((ts) => ts !== null);
     
-    // Create all layers from the tilemap
-    // Layer order in Tiled determines rendering order
-    // Bottom → top order must match PixelOfficeMap.json (Tiled layer list)
-    const layerNames = [
-      'Ground',
-      'walls',
-      'carpet',
-      'compounds',
-      'chairs',
-      'furniture',
-      'computers',
-      'chill zone',
-      'extra things',
-      'decoration',
-    ];
-    
-    layerNames.forEach((layerName) => {
-      const layer = this.tilemap.createLayer(layerName, tilesets, 0, 0);
-      
-      if (!layer) {
-        console.warn(`Layer "${layerName}" not found in map`);
+    // Create all tile layers (skip only object layers "interactions" and "player_spawn")
+    this.tilemap.layers.forEach((layerData) => {
+      // Skip object layers (they don't have tile data)
+      if (!layerData.data) {
+        console.log(`Skipping object layer: "${layerData.name}"`);
         return;
       }
+
+      const layer = this.tilemap.createLayer(layerData.name, tilesets, 0, 0);
       
+      if (!layer) {
+        console.error(`Layer failed: "${layerData.name}"`);
+        return;
+      }
+
+      console.log(`Layer created: "${layerData.name}"`);
       this.layers.push(layer);
     });
 
+    createCharacterAnims(this.anims);
+
     this.physics.world.setBounds(0, 0, this.tilemap.widthInPixels, this.tilemap.heightInPixels);
 
-    // Placeholder until Colyseus applies server spawn (see updatePlayerPosition for local session)
-    const startX = 400;
-    const startY = 300;
-    this.player = new Player(this, startX, startY);
+    const spawnLayer =
+      this.tilemap.getObjectLayer('player_spawn') ||
+      this.tilemap.getObjectLayer('spawn') ||
+      this.tilemap.getObjectLayer('Spawn') ||
+      this.tilemap.objects?.find((objectLayer) =>
+        Array.isArray(objectLayer.objects) &&
+        objectLayer.objects.some(
+          (object) =>
+            object.name === 'player_spawn' ||
+            object.name === 'PlayerSpawn' ||
+            object.name === 'spawn' ||
+            object.name === 'Spawn',
+        ),
+      );
+    const spawnPoint = spawnLayer?.objects.find(
+      (o) => o.name === 'player_spawn' || o.name === 'PlayerSpawn',
+    );
+
+    const rawSpawnX = Number(spawnPoint?.x);
+    const rawSpawnY = Number(spawnPoint?.y);
+    const rawSpawnHeight = Number(spawnPoint?.height);
+
+    const spawnX = Number.isFinite(rawSpawnX) ? rawSpawnX : 400;
+    // For rectangle objects, y is top edge in Tiled; include height so feet spawn on the marker.
+    const spawnY = Number.isFinite(rawSpawnY)
+      ? rawSpawnY + (Number.isFinite(rawSpawnHeight) ? rawSpawnHeight : 0)
+      : 300;
+    this.player = new Player(this, spawnX, spawnY);
 
     // Setup tile collisions after map/layers/player are ready.
     this.collidableLayers = setupCollisions(this, this.tilemap, this.player.sprite) || [];
@@ -186,9 +239,12 @@ export default class MainScene extends Phaser.Scene {
    */
   updatePlayerPosition(sessionId, x, y, username, userId) {
     const existing = this.playersMap.get(sessionId) || {};
+    const resolvedX = Number.isFinite(Number(x)) ? Number(x) : (existing.x ?? 400);
+    const resolvedY = Number.isFinite(Number(y)) ? Number(y) : (existing.y ?? 300);
+
     this.playersMap.set(sessionId, {
-      x,
-      y,
+      x: resolvedX,
+      y: resolvedY,
       username: username ?? existing.username,
       userId: userId ?? existing.userId,
     });
@@ -198,7 +254,7 @@ export default class MainScene extends Phaser.Scene {
     const isLocal = sessionId === this.room.sessionId;
 
     if (isLocal && this.player) {
-      this.player.setPosition(x, y);
+      this.player.setPosition(resolvedX, resolvedY);
       return;
     }
 
@@ -206,7 +262,7 @@ export default class MainScene extends Phaser.Scene {
     let nameText = this.nameTexts.get(sessionId);
 
     if (!rect) {
-      rect = this.add.rectangle(x, y, 20, 20, 0x3399ff);
+      rect = this.add.rectangle(resolvedX, resolvedY, 20, 20, 0x3399ff);
       this.physics.world.enable(rect);
       this.playerRects.set(sessionId, rect);
     }
@@ -214,7 +270,7 @@ export default class MainScene extends Phaser.Scene {
     const label = username || userId || sessionId.slice(0, 8);
 
     if (!nameText) {
-      nameText = this.add.text(x, y - 30, label, {
+      nameText = this.add.text(resolvedX, resolvedY - 30, label, {
         color: '#ffffff',
         fontSize: '12px',
       });
@@ -225,12 +281,12 @@ export default class MainScene extends Phaser.Scene {
     }
 
     if (rect) {
-      rect.x = x;
-      rect.y = y;
+      rect.x = resolvedX;
+      rect.y = resolvedY;
     }
     if (nameText) {
-      nameText.x = x;
-      nameText.y = y - 30;
+      nameText.x = resolvedX;
+      nameText.y = resolvedY - 30;
     }
   }
   

@@ -225,9 +225,14 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
     const player = new PlayerSchema();
     player.id = client.sessionId;
     player.userId = user.id;
+    const MAP_SPAWN_X = 656;
+    const MAP_SPAWN_Y = 877;
+    const SPAWN_COLUMN_SPACING = 40;
+    const SPAWN_ROW_SPACING = 40;
+    const SPAWN_COLUMNS = 6;
     const spawn = clampPosition(
-      200 + (this.state.players.size % 6) * 70,
-      200 + Math.floor(this.state.players.size / 6) * 70,
+      MAP_SPAWN_X + (this.state.players.size % SPAWN_COLUMNS) * SPAWN_COLUMN_SPACING,
+      MAP_SPAWN_Y + Math.floor(this.state.players.size / SPAWN_COLUMNS) * SPAWN_ROW_SPACING,
     );
     player.x = spawn.x;
     player.y = spawn.y;
