@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { Client, getStateCallbacks as _getStateCallbacks } from "colyseus.js";
 import GameConfig from "./game/config";
+import ChatOverlay from "./game/chat/chatOverlay";
 
 const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
@@ -12,6 +13,8 @@ const COLYSEUS_SERVER =
 const ROOM_NAME = "pixel-office";
 const AUTH_TOKEN_STORAGE_KEY = "supabase_access_token";
 const COLYSEUS_ROOM_ID_STORAGE_KEY = "colyseus_room_id";
+const DISPLAY_NAME_STORAGE_KEY = "pixel_office_display_name";
+const CHARACTER_KEY_STORAGE_KEY = "pixel_office_character_key";
 
 function getHttpBaseFromWs(wsUrl) {
   return wsUrl.replace(/^ws(s?):\/\//, "http$1://");
@@ -32,6 +35,14 @@ async function getAvailableRoomsCompat(client, roomName) {
 
 function hasStateCallbacks() {
   return typeof _getStateCallbacks === "function";
+}
+
+function getStoredValue(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 
 export async function createGame() {
@@ -76,12 +87,25 @@ export async function createGame() {
       return;
     }
 
+    const displayName = getStoredValue(DISPLAY_NAME_STORAGE_KEY);
+    const characterKey = getStoredValue(CHARACTER_KEY_STORAGE_KEY);
+
+    if (!displayName || !characterKey) {
+      console.warn("Missing character selection. Redirecting to character selection.");
+      window.location.href = "/select-character.html";
+      return;
+    }
+
     console.log("Attempting to join room:", colyseusRoomId);
     
     // Join the Colyseus room
     let room;
     try {
-      room = await client.joinById(colyseusRoomId, { token });
+      room = await client.joinById(colyseusRoomId, {
+        token,
+        displayName,
+        characterKey,
+      });
       console.log("✓ Connected to Colyseus room:", colyseusRoomId);
     } catch (roomError) {
       console.error("Failed to join room:", roomError);
@@ -98,6 +122,9 @@ export async function createGame() {
     }
     
     scene.room = room;
+
+    scene.chatOverlay = new ChatOverlay(scene);
+    scene.chatOverlay.bindRoom(room);
     
     // Bind player state listeners
     bindPlayerListeners(scene);
@@ -167,6 +194,11 @@ function bindPlayerListeners(scene) {
       statePlayer.y,
       statePlayer.username || statePlayer.name,
       statePlayer.userId,
+      statePlayer.characterKey,
+      statePlayer.avatarId,
+      statePlayer.direction,
+      statePlayer.isMoving,
+      statePlayer.isSitting,
     );
     scene.bindPlayerChange(statePlayer, sessionId);
     scene.updateDebugOverlay();
@@ -194,7 +226,12 @@ function bindPlayerListeners(scene) {
       statePlayer.x, 
       statePlayer.y,
       statePlayer.username || statePlayer.name,
-      statePlayer.userId
+      statePlayer.userId,
+      statePlayer.characterKey,
+      statePlayer.avatarId,
+      statePlayer.direction,
+      statePlayer.isMoving,
+      statePlayer.isSitting,
     );
     scene.bindPlayerChange(statePlayer, sessionId);
   });

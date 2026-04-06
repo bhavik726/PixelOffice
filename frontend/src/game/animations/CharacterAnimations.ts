@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-const CHARACTER_KEYS = ['adam', 'ash', 'lucy'] as const;
+const CHARACTER_KEYS = ['adam', 'ash', 'lucy', 'nancy'] as const;
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);

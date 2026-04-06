@@ -27,6 +27,18 @@ class PlayerSchema extends Schema {
 
   @type('string')
   avatarId = '';
+
+  @type('string')
+  characterKey = 'adam';
+
+  @type('string')
+  direction = 'down';
+
+  @type('boolean')
+  isMoving = false;
+
+  @type('boolean')
+  isSitting = false;
 }
 
 class PixelOfficeState extends Schema {
@@ -35,6 +47,8 @@ class PixelOfficeState extends Schema {
 }
 
 const ROOM_INACTIVITY_TIMEOUT_MS = Number(env.ROOM_INACTIVITY_TIMEOUT_MS || '300000');
+const CHARACTER_KEYS = ['adam', 'ash', 'lucy', 'nancy'] as const;
+type CharacterKey = (typeof CHARACTER_KEYS)[number];
 
 /** Must match frontend `PixelOfficeMap.json` (40×30 tiles @ 32px). */
 const MAP_WIDTH_PX = 40 * 32;
@@ -45,6 +59,59 @@ function clampPosition(x: number, y: number): { x: number; y: number } {
     x: Math.max(0, Math.min(MAP_WIDTH_PX, x)),
     y: Math.max(0, Math.min(MAP_HEIGHT_PX, y)),
   };
+}
+
+function isValidAvatarNumber(value: unknown): value is number {
+  return Number.isFinite(value) && Number(value) > 0;
+}
+
+function normalizeCharacterKey(value: unknown): CharacterKey | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (!CHARACTER_KEYS.includes(normalized as CharacterKey)) {
+    return undefined;
+  }
+
+  return normalized as CharacterKey;
+}
+
+function avatarNumberToCharacterKey(avatarNumber: number): CharacterKey {
+  const safeIndex = Math.max(0, Math.floor(avatarNumber) - 1);
+  return CHARACTER_KEYS[safeIndex % CHARACTER_KEYS.length];
+}
+
+function normalizeDisplayName(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized.slice(0, 24);
+}
+
+function normalizeDirection(value: unknown): 'up' | 'down' | 'left' | 'right' | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === 'up' ||
+    normalized === 'down' ||
+    normalized === 'left' ||
+    normalized === 'right'
+  ) {
+    return normalized;
+  }
+
+  return undefined;
 }
 
 export class PixelOfficeRoom extends Room<PixelOfficeState> {
@@ -161,44 +228,83 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
       visibility: this.roomVisibility,
     });
 
-    this.onMessage('move', (client, data: { x?: number; y?: number }) => {
-      this.touchActivity();
+    this.onMessage(
+      'move',
+      (
+        client,
+        data: {
+          x?: number;
+          y?: number;
+          direction?: string;
+          isMoving?: boolean;
+          isSitting?: boolean;
+        },
+      ) => {
+        this.touchActivity();
 
-      const player = this.state.players.get(client.sessionId);
-      if (!player) {
-        logger.warn('PixelOffice move received for unknown player', {
-          roomId: this.roomId,
-          sessionId: client.sessionId,
-        });
-        return;
-      }
+        const player = this.state.players.get(client.sessionId);
+        if (!player) {
+          logger.warn('PixelOffice move received for unknown player', {
+            roomId: this.roomId,
+            sessionId: client.sessionId,
+          });
+          return;
+        }
 
-      if (typeof data.x !== 'number' || typeof data.y !== 'number') {
-        logger.warn('PixelOffice move received with invalid payload', {
-          roomId: this.roomId,
-          sessionId: client.sessionId,
-          data,
-        });
-        return;
-      }
+        if (typeof data.x !== 'number' || typeof data.y !== 'number') {
+          logger.warn('PixelOffice move received with invalid payload', {
+            roomId: this.roomId,
+            sessionId: client.sessionId,
+            data,
+          });
+          return;
+        }
 
-      const clamped = clampPosition(data.x, data.y);
-      player.x = clamped.x;
-      player.y = clamped.y;
-    });
+        const clamped = clampPosition(data.x, data.y);
+        player.x = clamped.x;
+        player.y = clamped.y;
+
+        const nextDirection = normalizeDirection(data.direction);
+        if (nextDirection) {
+          player.direction = nextDirection;
+        }
+
+        if (typeof data.isMoving === 'boolean') {
+          player.isMoving = data.isMoving;
+        }
+
+        if (typeof data.isSitting === 'boolean') {
+          player.isSitting = data.isSitting;
+        }
+      },
+    );
 
     this.onMessage('chat', (client, data: { text?: string }) => {
       this.touchActivity();
-      if (typeof data.text !== 'string' || !data.text.trim()) return;
+
+      if (typeof data.text !== 'string') return;
+
+      const normalizedText = data.text.trim().replace(/\s+/g, ' ');
+      if (!normalizedText) return;
+
+      const message = normalizedText.slice(0, 180);
 
       const player = this.state.players.get(client.sessionId);
-      const sender = player?.username ?? client.sessionId;
+      const sender = player?.username ?? this.getPlayerLabel(client.sessionId);
 
-      this.broadcast('chat', { from: sender, text: data.text.trim() });
+      this.broadcast('chat', {
+        sessionId: client.sessionId,
+        from: sender,
+        text: message,
+        timestamp: Date.now(),
+      });
     });
   }
 
-  async onJoin(client: Client, options: { token?: string } = {}) {
+  async onJoin(
+    client: Client,
+    options: { token?: string; displayName?: string; characterKey?: string } = {},
+  ) {
     this.touchActivity();
     this.clearEmptyRoomTimeout();
 
@@ -214,13 +320,39 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
 
     const user = data.user;
     const meta = user.user_metadata as { username?: string; display_name?: string } | null;
-    const username = meta?.username ?? meta?.display_name ?? user.email ?? 'Anonymous';
+    const username =
+      normalizeDisplayName(options.displayName) ??
+      meta?.username ??
+      meta?.display_name ??
+      user.email ??
+      'Anonymous';
+    const metadata = meta as Record<string, unknown> | null;
 
-    // Pick a random avatar not currently in use.
+    const { data: dbUser } = await supabase
+      .from('users')
+      .select('avatar_id')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const metadataCharacter = normalizeCharacterKey(
+      options.characterKey ?? metadata?.characterKey ?? metadata?.character ?? metadata?.avatar,
+    );
+
+    const dbAvatarNumber = Number(dbUser?.avatar_id);
+    const metadataAvatarNumber = Number(metadata?.avatar_id ?? metadata?.avatarId);
+
+    const preferredAvatarNumber = isValidAvatarNumber(dbAvatarNumber)
+      ? dbAvatarNumber
+      : isValidAvatarNumber(metadataAvatarNumber)
+        ? metadataAvatarNumber
+        : null;
+
+    // Pick a random avatar not currently in use only when no preferred avatar exists.
     const usedAvatarIds = [...this.state.players.values()]
       .map((p) => Number(p.avatarId))
       .filter((n) => Number.isFinite(n) && n > 0);
-    const avatarNumber = getRandomAvailableAvatar(usedAvatarIds);
+    const avatarNumber = preferredAvatarNumber ?? getRandomAvailableAvatar(usedAvatarIds);
+    const characterKey = metadataCharacter ?? avatarNumberToCharacterKey(avatarNumber);
 
     const player = new PlayerSchema();
     player.id = client.sessionId;
@@ -239,6 +371,10 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
     player.username = username;
     player.name = username;
     player.avatarId = String(avatarNumber);
+    player.characterKey = characterKey;
+    player.direction = 'down';
+    player.isMoving = false;
+    player.isSitting = false;
 
     this.state.players.set(client.sessionId, player);
 

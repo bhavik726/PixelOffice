@@ -1,5 +1,6 @@
 const AUTH_TOKEN_STORAGE_KEY = "supabase_access_token";
 const COLYSEUS_ROOM_ID_STORAGE_KEY = "colyseus_room_id";
+const CHARACTER_SELECT_PAGE = "/select-character.html";
 
 const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
@@ -255,7 +256,7 @@ async function joinRoomNow(roomId, password, cardEl) {
     }
 
     window.localStorage.setItem(COLYSEUS_ROOM_ID_STORAGE_KEY, colyseusRoomId);
-    window.location.href = "/";
+    window.location.href = CHARACTER_SELECT_PAGE;
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     const normalized = normalizeJoinErrorMessage(message);
@@ -326,7 +327,7 @@ async function connectPublicLobby() {
     if (!colyseusRoomId) throw new Error("Missing colyseus_room_id from join response");
 
     window.localStorage.setItem(COLYSEUS_ROOM_ID_STORAGE_KEY, colyseusRoomId);
-    window.location.href = "/";
+    window.location.href = CHARACTER_SELECT_PAGE;
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     setInlineError(publicErrorEl, message);

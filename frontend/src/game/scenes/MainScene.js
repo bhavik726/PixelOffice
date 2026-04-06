@@ -1,7 +1,28 @@
 import Phaser from 'phaser';
 import Player from '../player';
 import { setupCollisions } from '../handlers/collision/collisionHandler';
+import { setupChairInteraction } from '../handlers/interactions/chairInteraction';
 import { createCharacterAnims } from '../animations/CharacterAnimations';
+
+const CHARACTER_KEYS = new Set(['adam', 'ash', 'lucy', 'nancy']);
+
+function normalizeCharacterKey(characterKey, avatarId) {
+  if (typeof characterKey === 'string') {
+    const normalized = characterKey.trim().toLowerCase();
+    if (CHARACTER_KEYS.has(normalized)) {
+      return normalized;
+    }
+  }
+
+  const avatarNumber = Number(avatarId);
+  if (Number.isFinite(avatarNumber) && avatarNumber > 0) {
+    const ordered = ['adam', 'ash', 'lucy', 'nancy'];
+    const index = Math.max(0, Math.floor(avatarNumber) - 1) % ordered.length;
+    return ordered[index];
+  }
+
+  return 'adam';
+}
 
 /**
  * Main Game Scene
@@ -20,7 +41,13 @@ export default class MainScene extends Phaser.Scene {
     this.playersMap = new Map();
     this.playerRects = new Map();
     this.nameTexts = new Map();
+    this.localNameText = null;
+    this.localDisplayName = '';
     this.debugText = null;
+    this.chairInteraction = null;
+    this.chatBubbles = new Map();
+    this.chatOverlay = null;
+    this.chatInputActive = false;
   }
   
   /**
@@ -55,6 +82,11 @@ export default class MainScene extends Phaser.Scene {
       'lucy',
       '/assets/character/single/lucy.png',
       '/assets/character/single/lucy.json',
+    );
+    this.load.atlas(
+      'nancy',
+      '/assets/character/nancy.png',
+      '/assets/character/nancy.json',
     );
   }
   
@@ -147,6 +179,9 @@ export default class MainScene extends Phaser.Scene {
 
     // Setup tile collisions after map/layers/player are ready.
     this.collidableLayers = setupCollisions(this, this.tilemap, this.player.sprite) || [];
+    this.chairInteraction = setupChairInteraction(this, this.tilemap, this.player);
+    this.events.once('shutdown', this.shutdown, this);
+    this.events.once('destroy', this.shutdown, this);
 
     console.log(`Loaded ${this.layers.length} layers, ${this.collidableLayers.length} with collision`);
     
@@ -209,17 +244,39 @@ export default class MainScene extends Phaser.Scene {
    */
   update() {
     if (this.player) {
+      this.chairInteraction?.update();
       this.player.update();
+
+      if (this.localNameText && this.player.sprite) {
+        this.localNameText.x = this.player.sprite.x;
+        this.localNameText.y = this.player.sprite.y - 38;
+      }
+
+      this.updateChatBubbles();
       
       // Send player position to Colyseus server if connected
       if (this.room) {
-        const pos = this.player.getPosition();
+        const sync = this.player.getSyncState();
         this.room.send('move', { 
-          x: Math.round(pos.x), 
-          y: Math.round(pos.y) 
+          x: Math.round(sync.x), 
+          y: Math.round(sync.y),
+          direction: sync.direction,
+          isMoving: sync.isMoving,
+          isSitting: sync.isSitting,
         });
       }
     }
+  }
+
+  shutdown() {
+    this.chairInteraction?.destroy();
+    this.chairInteraction = null;
+
+    this.chatOverlay?.destroy?.();
+    this.chatOverlay = null;
+
+    this.chatBubbles.forEach((bubble) => bubble.text?.destroy?.());
+    this.chatBubbles.clear();
   }
   
   /**
@@ -237,16 +294,39 @@ export default class MainScene extends Phaser.Scene {
   /**
    * Colyseus Integration: Update other players' positions and display names
    */
-  updatePlayerPosition(sessionId, x, y, username, userId) {
+  updatePlayerPosition(
+    sessionId,
+    x,
+    y,
+    username,
+    userId,
+    characterKey,
+    avatarId,
+    direction,
+    isMoving,
+    isSitting,
+  ) {
     const existing = this.playersMap.get(sessionId) || {};
     const resolvedX = Number.isFinite(Number(x)) ? Number(x) : (existing.x ?? 400);
     const resolvedY = Number.isFinite(Number(y)) ? Number(y) : (existing.y ?? 300);
+    const resolvedCharacterKey = normalizeCharacterKey(
+      characterKey ?? existing.characterKey,
+      avatarId ?? existing.avatarId,
+    );
+    const resolvedDirection = direction ?? existing.direction ?? 'down';
+    const resolvedMoving = typeof isMoving === 'boolean' ? isMoving : (existing.isMoving ?? false);
+    const resolvedSitting = typeof isSitting === 'boolean' ? isSitting : (existing.isSitting ?? false);
 
     this.playersMap.set(sessionId, {
       x: resolvedX,
       y: resolvedY,
       username: username ?? existing.username,
       userId: userId ?? existing.userId,
+      avatarId: avatarId ?? existing.avatarId,
+      characterKey: resolvedCharacterKey,
+      direction: resolvedDirection,
+      isMoving: resolvedMoving,
+      isSitting: resolvedSitting,
     });
 
     if (!this.room) return;
@@ -254,7 +334,28 @@ export default class MainScene extends Phaser.Scene {
     const isLocal = sessionId === this.room.sessionId;
 
     if (isLocal && this.player) {
+      this.player.setCharacterKey(resolvedCharacterKey);
       this.player.setPosition(resolvedX, resolvedY);
+
+      const label = username || userId || sessionId.slice(0, 8);
+      this.localDisplayName = label;
+
+      if (!this.localNameText) {
+        this.localNameText = this.add.text(resolvedX, resolvedY - 38, label, {
+          color: '#ffffff',
+          fontSize: '12px',
+          fontStyle: '600',
+        });
+        this.localNameText.setOrigin(0.5, 1);
+        this.localNameText.setDepth(1200);
+      } else {
+        this.localNameText.setText(label);
+      }
+
+      this.localNameText.x = resolvedX;
+      this.localNameText.y = resolvedY - 38;
+
+      this.syncChatBubblePosition(sessionId, resolvedX, resolvedY);
       return;
     }
 
@@ -262,9 +363,24 @@ export default class MainScene extends Phaser.Scene {
     let nameText = this.nameTexts.get(sessionId);
 
     if (!rect) {
-      rect = this.add.rectangle(resolvedX, resolvedY, 20, 20, 0x3399ff);
-      this.physics.world.enable(rect);
+      rect = this.physics.add.sprite(resolvedX, resolvedY, resolvedCharacterKey);
+      rect.setOrigin(0.5, 1);
+      rect.setDepth(900);
+      rect.body.setImmovable(true);
+      rect.body.setAllowGravity(false);
       this.playerRects.set(sessionId, rect);
+    }
+
+    if (rect.texture?.key !== resolvedCharacterKey) {
+      rect.setTexture(resolvedCharacterKey);
+    }
+
+    if (resolvedSitting) {
+      rect.anims.play(`${resolvedCharacterKey}_sit_${resolvedDirection}`, true);
+    } else if (resolvedMoving) {
+      rect.anims.play(`${resolvedCharacterKey}_run_${resolvedDirection}`, true);
+    } else {
+      rect.anims.play(`${resolvedCharacterKey}_idle_${resolvedDirection}`, true);
     }
 
     const label = username || userId || sessionId.slice(0, 8);
@@ -288,6 +404,8 @@ export default class MainScene extends Phaser.Scene {
       nameText.x = resolvedX;
       nameText.y = resolvedY - 30;
     }
+
+    this.syncChatBubblePosition(sessionId, resolvedX, resolvedY);
   }
   
   /**
@@ -295,9 +413,14 @@ export default class MainScene extends Phaser.Scene {
    */
   removePlayer(sessionId) {
     this.playersMap.delete(sessionId);
+    this.destroyChatBubble(sessionId);
     if (!this.room) return;
 
     if (sessionId === this.room.sessionId) {
+      if (this.localNameText) {
+        this.localNameText.destroy();
+        this.localNameText = null;
+      }
       this.playerRects.delete(sessionId);
       const nameText = this.nameTexts.get(sessionId);
       if (nameText) nameText.destroy();
@@ -332,6 +455,92 @@ export default class MainScene extends Phaser.Scene {
 
     this.debugText.setText(lines.join('\n'));
   }
+
+  normalizeChatMessage(text) {
+    if (typeof text !== 'string') {
+      return '';
+    }
+
+    return text.trim().replace(/\s+/g, ' ').slice(0, 180);
+  }
+
+  syncChatBubblePosition(sessionId, x, y) {
+    const bubble = this.chatBubbles.get(sessionId);
+    if (!bubble?.text) return;
+
+    bubble.baseX = x;
+    bubble.baseY = y;
+    bubble.text.x = x;
+    bubble.text.y = y - 56;
+  }
+
+  destroyChatBubble(sessionId) {
+    const bubble = this.chatBubbles.get(sessionId);
+    if (!bubble) return;
+
+    bubble.text?.destroy?.();
+    this.chatBubbles.delete(sessionId);
+  }
+
+  showChatBubble(sessionId, from, text, durationMs = 3500) {
+    const normalizedText = this.normalizeChatMessage(text);
+    if (!normalizedText) return;
+
+    const current = this.playersMap.get(sessionId);
+    const baseX = current?.x ?? this.player?.sprite?.x;
+    const baseY = current?.y ?? this.player?.sprite?.y;
+
+    if (!Number.isFinite(Number(baseX)) || !Number.isFinite(Number(baseY))) {
+      return;
+    }
+
+    this.destroyChatBubble(sessionId);
+
+    const bubbleText = this.add.text(Number(baseX), Number(baseY) - 56, normalizedText, {
+      color: '#f8fafc',
+      fontFamily: 'Courier New, monospace',
+      fontSize: '10px',
+      backgroundColor: 'rgba(10, 14, 24, 0.92)',
+      padding: { left: 8, right: 8, top: 5, bottom: 5 },
+      stroke: '#000000',
+      strokeThickness: 2,
+      align: 'center',
+      wordWrap: { width: 140, useAdvancedWrap: true },
+    });
+    bubbleText.setOrigin(0.5, 1);
+    bubbleText.setDepth(1300);
+
+    this.chatBubbles.set(sessionId, {
+      text: bubbleText,
+      from,
+      expiresAt: Date.now() + durationMs,
+      baseX: Number(baseX),
+      baseY: Number(baseY),
+    });
+  }
+
+  updateChatBubbles() {
+    const now = Date.now();
+
+    this.chatBubbles.forEach((bubble, sessionId) => {
+      const expired = now >= bubble.expiresAt;
+      if (expired) {
+        this.destroyChatBubble(sessionId);
+        return;
+      }
+
+      const current = this.playersMap.get(sessionId);
+      const x = Number.isFinite(Number(current?.x)) ? Number(current?.x) : bubble.baseX;
+      const y = Number.isFinite(Number(current?.y)) ? Number(current?.y) : bubble.baseY;
+
+      if (bubble.text) {
+        bubble.text.x = x;
+        bubble.text.y = y - 56;
+      }
+      bubble.baseX = x;
+      bubble.baseY = y;
+    });
+  }
   
   /**
    * Bind listeners to individual player fields (Colyseus)
@@ -347,6 +556,11 @@ export default class MainScene extends Phaser.Scene {
           current.y ?? 0,
           current.username,
           current.userId,
+          current.characterKey,
+          current.avatarId,
+          current.direction,
+          current.isMoving,
+          current.isSitting,
         );
         this.updateDebugOverlay();
       });
@@ -358,6 +572,11 @@ export default class MainScene extends Phaser.Scene {
           newY,
           current.username,
           current.userId,
+          current.characterKey,
+          current.avatarId,
+          current.direction,
+          current.isMoving,
+          current.isSitting,
         );
         this.updateDebugOverlay();
       });
@@ -369,6 +588,91 @@ export default class MainScene extends Phaser.Scene {
           current.y ?? 0,
           newUsername,
           current.userId,
+          current.characterKey,
+          current.avatarId,
+          current.direction,
+          current.isMoving,
+          current.isSitting,
+        );
+        this.updateDebugOverlay();
+      });
+      statePlayer.listen('characterKey', (newCharacterKey) => {
+        const current = this.playersMap.get(sessionId) || {};
+        this.updatePlayerPosition(
+          sessionId,
+          current.x ?? 0,
+          current.y ?? 0,
+          current.username,
+          current.userId,
+          newCharacterKey,
+          current.avatarId,
+          current.direction,
+          current.isMoving,
+          current.isSitting,
+        );
+        this.updateDebugOverlay();
+      });
+      statePlayer.listen('avatarId', (newAvatarId) => {
+        const current = this.playersMap.get(sessionId) || {};
+        this.updatePlayerPosition(
+          sessionId,
+          current.x ?? 0,
+          current.y ?? 0,
+          current.username,
+          current.userId,
+          current.characterKey,
+          newAvatarId,
+          current.direction,
+          current.isMoving,
+          current.isSitting,
+        );
+        this.updateDebugOverlay();
+      });
+      statePlayer.listen('direction', (newDirection) => {
+        const current = this.playersMap.get(sessionId) || {};
+        this.updatePlayerPosition(
+          sessionId,
+          current.x ?? 0,
+          current.y ?? 0,
+          current.username,
+          current.userId,
+          current.characterKey,
+          current.avatarId,
+          newDirection,
+          current.isMoving,
+          current.isSitting,
+        );
+        this.updateDebugOverlay();
+      });
+      statePlayer.listen('isMoving', (newIsMoving) => {
+        const current = this.playersMap.get(sessionId) || {};
+        this.updatePlayerPosition(
+          sessionId,
+          current.x ?? 0,
+          current.y ?? 0,
+          current.username,
+          current.userId,
+          current.characterKey,
+          current.avatarId,
+          current.direction,
+          newIsMoving,
+          current.isSitting,
+        );
+        this.updateDebugOverlay();
+      });
+      statePlayer.listen('isSitting', (newIsSitting) => {
+        const current = this.playersMap.get(sessionId) || {};
+        this.updatePlayerPosition(
+          sessionId,
+          current.x ?? 0,
+          current.y ?? 0,
+          current.username,
+          current.userId,
+          current.characterKey,
+          current.avatarId,
+          current.direction,
+          current.isMoving,
+          newIsSitting,
         );
         this.updateDebugOverlay();
       });
@@ -383,6 +687,11 @@ export default class MainScene extends Phaser.Scene {
         statePlayer.y,
         statePlayer.username || statePlayer.name,
         statePlayer.userId,
+        statePlayer.characterKey,
+        statePlayer.avatarId,
+        statePlayer.direction,
+        statePlayer.isMoving,
+        statePlayer.isSitting,
       );
       this.updateDebugOverlay();
     };

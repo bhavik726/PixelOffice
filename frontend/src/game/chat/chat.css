@@ -1,0 +1,143 @@
+.po-chat-overlay {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  width: min(360px, calc(100vw - 36px));
+  z-index: 60;
+  pointer-events: auto;
+  font-family: "Courier New", Courier, monospace;
+}
+
+.po-chat-shell {
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(8, 12, 20, 0.94), rgba(15, 23, 42, 0.94));
+  box-shadow: 0 18px 48px rgba(2, 6, 23, 0.45);
+  backdrop-filter: blur(10px);
+}
+
+.po-chat-shell[data-collapsed='true'] .po-chat-body {
+  display: none;
+}
+
+.po-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  color: #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 10px;
+}
+
+.po-chat-header span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.po-chat-header button,
+.po-chat-send {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.92);
+  color: #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.po-chat-header button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+
+.po-chat-header button:hover,
+.po-chat-send:hover {
+  transform: translateY(-1px);
+  border-color: rgba(125, 211, 252, 0.6);
+}
+
+.po-chat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+}
+
+.po-chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 184px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.po-chat-empty {
+  padding: 8px 6px 6px;
+  color: rgba(226, 232, 240, 0.6);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.po-chat-message {
+  padding: 7px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.48);
+}
+
+.po-chat-message__from {
+  margin-bottom: 3px;
+  color: #7dd3fc;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.po-chat-message__text {
+  color: #f8fafc;
+  font-size: 13px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.po-chat-composer {
+  display: flex;
+  gap: 8px;
+}
+
+.po-chat-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.po-chat-input::placeholder {
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.po-chat-input:focus {
+  border-color: rgba(125, 211, 252, 0.7);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+}
+
+.po-chat-send {
+  min-width: 74px;
+  padding: 0 14px;
+  font-size: 12px;
+}

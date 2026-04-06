@@ -183,8 +183,8 @@
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3418, 3420, 3420, 3419, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3434, 3436, 3436, 3435, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2726, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 3482, 3483, 0, 0, 0, 3480, 3481, 0, 0, 3723, 0, 0, 0, 3725, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2742, 3939, 3940, 0, 0, 0, 0,
-            0, 0, 0, 3498, 3499, 0, 0, 0, 3496, 3497, 0, 0, 3739, 0, 0, 0, 3741, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2726, 3955, 3956, 0, 0, 0, 0,
+            0, 0, 0, 3482, 3483, 0, 0, 0, 3480, 3481, 0, 0, 3723, 0, 0, 0, 3725, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2742, 3939, 2725, 0, 0, 0, 0,
+            0, 0, 0, 3498, 3499, 0, 0, 0, 3496, 3497, 0, 0, 3739, 0, 0, 0, 3741, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2726, 3955, 2741, 0, 0, 0, 0,
             0, 0, 0, 3514, 3515, 3565, 3566, 3567, 3512, 3513, 0, 0, 3725, 0, 0, 0, 3723, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2742, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 3581, 3582, 3583, 0, 0, 0, 0, 3741, 0, 0, 0, 3739, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -227,13 +227,13 @@
         }, 
         {
          "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4533, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4549, 0, 0, 0, 0, 0, 0, 0, 0, 3255, 3256, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2759, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4533, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2775, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4549, 0, 0, 0, 0, 0, 0, 0, 0, 3255, 3256, 0, 0, 2791, 0,
             0, 0, 0, 0, 0, 3409, 3410, 3411, 0, 0, 0, 0, 0, 4209, 4210, 4211, 0, 0, 0, 0, 0, 5079, 5080, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3269, 3272, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 3425, 3426, 3427, 0, 0, 0, 0, 0, 4225, 4226, 4227, 0, 0, 0, 0, 0, 5095, 5096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3270, 3271, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 3441, 3442, 3443, 0, 0, 0, 0, 0, 4241, 4242, 4245, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3286, 3287, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4257, 4258, 4259, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 3425, 3426, 3427, 0, 0, 0, 0, 0, 4225, 4226, 4227, 0, 0, 0, 0, 0, 5095, 5096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3270, 3271, 0, 0, 2759, 0,
+            0, 0, 0, 0, 0, 3441, 3442, 3443, 0, 0, 0, 0, 0, 4241, 4242, 4245, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3286, 3287, 0, 0, 2775, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4257, 4258, 4259, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2791, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 3604, 3605, 3606, 3652, 3653, 3654, 0, 0, 0, 3813, 3814, 3815, 3816, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 3620, 3621, 3622, 3668, 3669, 3670, 0, 0, 0, 3829, 3830, 3831, 3832, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -448,6 +448,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":11
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":23
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -465,6 +480,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"left"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":13
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":25
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -484,6 +514,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"up"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":11
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":26
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -501,6 +546,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"up"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":9
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":26
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -520,6 +580,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"up"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":7
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":26
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -537,6 +612,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"right"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":5
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":25
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -556,6 +646,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":7
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":23
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -573,6 +678,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":9
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":23
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -592,6 +712,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":31
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":22
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -609,6 +744,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":34
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":22
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -628,6 +778,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":37
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":22
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -645,6 +810,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"up"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":37
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":24
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -664,6 +844,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"up"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":34
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":24
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -681,6 +876,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"up"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":31
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":24
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -700,6 +910,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"up"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":31
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":16
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -717,6 +942,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":31
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":13
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -736,6 +976,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":34
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":13
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -753,6 +1008,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":37
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":13
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -772,6 +1042,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"up"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":37
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":16
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -789,6 +1074,21 @@
                  "name":"",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"up"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":34
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":16
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -808,6 +1108,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"left"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":35
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":4
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -825,6 +1140,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"left"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":9
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":5
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -844,6 +1174,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"right"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":3
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":5
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -858,8 +1203,29 @@
                 {
                  "height":37.3333333333333,
                  "id":43,
-                 "name":"",
+                 "name":"chair",
                  "opacity":1,
+                 "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":14
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":14
+                        }, 
+                        {
+                         "name":"type",
+                         "type":"string",
+                         "value":"chair"
+                        }],
                  "rotation":0,
                  "type":"",
                  "visible":true,
@@ -870,8 +1236,29 @@
                 {
                  "height":32,
                  "id":44,
-                 "name":"",
+                 "name":"chair",
                  "opacity":1,
+                 "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":13
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":14
+                        }, 
+                        {
+                         "name":"type",
+                         "type":"string",
+                         "value":"chair"
+                        }],
                  "rotation":0,
                  "type":"",
                  "visible":true,
@@ -882,8 +1269,29 @@
                 {
                  "height":37.3333333333334,
                  "id":47,
-                 "name":"",
+                 "name":"chair",
                  "opacity":1,
+                 "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":12
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":14
+                        }, 
+                        {
+                         "name":"type",
+                         "type":"string",
+                         "value":"chair"
+                        }],
                  "rotation":0,
                  "type":"",
                  "visible":true,
@@ -894,8 +1302,29 @@
                 {
                  "height":32,
                  "id":48,
-                 "name":"",
+                 "name":"chair",
                  "opacity":1,
+                 "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":11
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":14
+                        }, 
+                        {
+                         "name":"type",
+                         "type":"string",
+                         "value":"chair"
+                        }],
                  "rotation":0,
                  "type":"",
                  "visible":true,
@@ -918,8 +1347,29 @@
                 {
                  "height":34.6666666666667,
                  "id":50,
-                 "name":"",
+                 "name":"chair",
                  "opacity":1,
+                 "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":5
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":14
+                        }, 
+                        {
+                         "name":"type",
+                         "type":"string",
+                         "value":"chair"
+                        }],
                  "rotation":0,
                  "type":"",
                  "visible":true,
@@ -930,8 +1380,29 @@
                 {
                  "height":28,
                  "id":51,
-                 "name":"",
+                 "name":"chair",
                  "opacity":1,
+                 "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":4
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":14
+                        }, 
+                        {
+                         "name":"type",
+                         "type":"string",
+                         "value":"chair"
+                        }],
                  "rotation":0,
                  "type":"",
                  "visible":true,
@@ -942,8 +1413,29 @@
                 {
                  "height":30.6666666666667,
                  "id":52,
-                 "name":"",
+                 "name":"chair",
                  "opacity":1,
+                 "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":3
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":14
+                        }, 
+                        {
+                         "name":"type",
+                         "type":"string",
+                         "value":"chair"
+                        }],
                  "rotation":0,
                  "type":"",
                  "visible":true,
@@ -957,6 +1449,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"right"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":12
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":6
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -976,6 +1483,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"right"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":12
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":4
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -993,6 +1515,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"left"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":16
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":4
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -1012,6 +1549,21 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"left"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":16
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":6
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"chair"
@@ -1029,6 +1581,21 @@
                  "name":"chair",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"direction",
+                         "type":"string",
+                         "value":"down"
+                        }, 
+                        {
+                         "name":"sitx",
+                         "type":"int",
+                         "value":22
+                        }, 
+                        {
+                         "name":"sity",
+                         "type":"int",
+                         "value":3
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
@@ -1206,7 +1773,7 @@
                 }],
          "opacity":1,
          "type":"objectgroup",
-         "visible":false,
+         "visible":true,
          "x":0,
          "y":0
         }, 
@@ -1229,7 +1796,7 @@
                 }],
          "opacity":1,
          "type":"objectgroup",
-         "visible":false,
+         "visible":true,
          "x":0,
          "y":0
         }],

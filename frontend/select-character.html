@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Select Character · Pixel Office</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #070b16;
+        --panel: #141b2f;
+        --panel-2: #0f1628;
+        --border: rgba(148, 163, 184, 0.16);
+        --text: #f8fafc;
+        --muted: #a3b2d0;
+        --accent: #4eead7;
+        --accent-2: #7cf1a6;
+        --shadow: rgba(0, 0, 0, 0.5);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top, rgba(78, 234, 215, 0.16), transparent 28%),
+          radial-gradient(circle at 80% 20%, rgba(124, 241, 166, 0.12), transparent 24%),
+          linear-gradient(180deg, #090d1a 0%, #070b16 42%, #050812 100%);
+        overflow: hidden;
+      }
+
+      .ambient {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+          linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: radial-gradient(circle at center, black 30%, transparent 86%);
+      }
+
+      .shell {
+        position: relative;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 28px 16px;
+      }
+
+      .card {
+        width: min(980px, 100%);
+        min-height: 640px;
+        display: grid;
+        grid-template-columns: 1fr 1.15fr;
+        gap: 0;
+        border-radius: 28px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(20, 27, 47, 0.95), rgba(12, 18, 34, 0.95));
+        box-shadow: 0 30px 90px var(--shadow);
+        backdrop-filter: blur(18px);
+      }
+
+      .preview-pane {
+        position: relative;
+        padding: 36px 28px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 22px;
+        border-right: 1px solid rgba(255,255,255,0.06);
+        background:
+          radial-gradient(circle at top left, rgba(78, 234, 215, 0.12), transparent 42%),
+          linear-gradient(180deg, rgba(10, 16, 31, 0.9), rgba(11, 18, 36, 0.95));
+      }
+
+      .preview-heading {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .badge {
+        width: 54px;
+        height: 54px;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, rgba(78, 234, 215, 0.28), rgba(124, 241, 166, 0.22));
+        border: 1px solid rgba(124, 241, 166, 0.28);
+        color: var(--text);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+
+      .preview-heading h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 750;
+        letter-spacing: -0.03em;
+      }
+
+      .preview-heading p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .frame {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-height: 340px;
+        border-radius: 24px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background:
+          radial-gradient(circle at top, rgba(255,255,255,0.05), transparent 42%),
+          linear-gradient(180deg, rgba(15, 22, 40, 0.98), rgba(10, 14, 26, 0.98));
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,0.05),
+          0 18px 30px rgba(0, 0, 0, 0.25);
+        overflow: hidden;
+      }
+
+      .frame::before,
+      .frame::after {
+        content: "";
+        position: absolute;
+        inset: 18px;
+        border-radius: 20px;
+        border: 1px dashed rgba(148, 163, 184, 0.14);
+      }
+
+      .frame::after {
+        inset: auto 20px 20px 20px;
+        height: 18px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, transparent, rgba(78, 234, 215, 0.18), transparent);
+        border: 0;
+        filter: blur(8px);
+      }
+
+      .character-wrap {
+        position: relative;
+        width: 240px;
+        height: 280px;
+        display: grid;
+        place-items: center;
+      }
+
+      .character-glow {
+        position: absolute;
+        inset: 40px 48px 12px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(78, 234, 215, 0.34), transparent 68%);
+        filter: blur(14px);
+      }
+
+      .character-sprite {
+        position: relative;
+        z-index: 1;
+        width: 200px;
+        height: 240px;
+        image-rendering: pixelated;
+        object-fit: contain;
+        animation: floaty 3.8s ease-in-out infinite;
+      }
+
+      .picker-controls {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 8px;
+        pointer-events: none;
+      }
+
+      .arrow {
+        pointer-events: auto;
+        width: 44px;
+        height: 44px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        background: rgba(15, 23, 42, 0.72);
+        color: var(--text);
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition: transform 0.15s ease, border-color 0.15s ease;
+      }
+
+      .arrow:hover {
+        transform: scale(1.04);
+        border-color: rgba(78, 234, 215, 0.52);
+      }
+
+      .name-pill {
+        align-self: flex-start;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.72);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .details-pane {
+        padding: 34px 30px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 18px;
+        background:
+          radial-gradient(circle at 100% 0%, rgba(78, 234, 215, 0.08), transparent 30%),
+          linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(11, 16, 30, 0.98));
+      }
+
+      .details-pane h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      label {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      input {
+        width: 100%;
+        height: 56px;
+        border-radius: 14px;
+        border: 1px solid rgba(78, 234, 215, 0.35);
+        background: rgba(8, 12, 24, 0.82);
+        color: var(--text);
+        padding: 0 16px;
+        font-size: 16px;
+        outline: none;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+      }
+
+      input:focus {
+        border-color: rgba(78, 234, 215, 0.88);
+        box-shadow: 0 0 0 3px rgba(78, 234, 215, 0.12);
+      }
+
+      .chooser {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .choice {
+        border: 1px solid rgba(148, 163, 184, 0.12);
+        background: rgba(8, 12, 24, 0.68);
+        border-radius: 18px;
+        padding: 12px 10px;
+        cursor: pointer;
+        color: var(--text);
+        transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+      }
+
+      .choice:hover {
+        transform: translateY(-1px);
+        border-color: rgba(78, 234, 215, 0.28);
+      }
+
+      .choice[data-active="true"] {
+        border-color: rgba(78, 234, 215, 0.78);
+        background: linear-gradient(180deg, rgba(78, 234, 215, 0.13), rgba(8, 12, 24, 0.9));
+      }
+
+      .choice img {
+        width: 100%;
+        height: 96px;
+        object-fit: contain;
+        image-rendering: pixelated;
+      }
+
+      .choice span {
+        display: block;
+        margin-top: 6px;
+        text-align: center;
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: capitalize;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 6px;
+      }
+
+      .primary,
+      .secondary {
+        height: 54px;
+        border-radius: 14px;
+        border: 0;
+        padding: 0 18px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.15s ease, filter 0.15s ease;
+      }
+
+      .primary {
+        flex: 1;
+        color: #05111a;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        box-shadow: 0 16px 32px rgba(78, 234, 215, 0.18);
+      }
+
+      .secondary {
+        width: 160px;
+        color: var(--text);
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.16);
+      }
+
+      .primary:hover,
+      .secondary:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.02);
+      }
+
+      .hint,
+      .error {
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .hint {
+        color: var(--muted);
+      }
+
+      .error {
+        color: #fb7185;
+        min-height: 20px;
+      }
+
+      @keyframes floaty {
+        0%,
+        100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-8px);
+        }
+      }
+
+      @media (max-width: 860px) {
+        body {
+          overflow-y: auto;
+        }
+
+        .card {
+          grid-template-columns: 1fr;
+          min-height: auto;
+        }
+
+        .preview-pane {
+          border-right: 0;
+          border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .chooser {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .actions {
+          flex-direction: column;
+        }
+
+        .secondary {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="ambient"></div>
+    <main class="shell">
+      <section class="card" aria-label="Character selection">
+        <div class="preview-pane">
+          <div class="preview-heading">
+            <div class="badge" id="characterBadge">PL</div>
+            <div>
+              <h1>Public Lobby</h1>
+              <p>Choose a character and name before entering the room.</p>
+            </div>
+          </div>
+
+          <div class="frame">
+            <div class="character-wrap">
+              <div class="character-glow"></div>
+              <img id="characterPreview" class="character-sprite" src="/assets/character/selection/Adam.png" alt="Selected character preview" />
+              <div class="picker-controls">
+                <button type="button" class="arrow" id="prevCharacterBtn" aria-label="Previous character">&#8249;</button>
+                <button type="button" class="arrow" id="nextCharacterBtn" aria-label="Next character">&#8250;</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="name-pill" id="selectedNamePill">Name: Anonymous</div>
+        </div>
+
+        <div class="details-pane">
+          <h2>Select your avatar</h2>
+          <div class="hint">Pick the character you want others to see and enter the name shown above your head.</div>
+
+          <div class="field">
+            <label for="displayNameInput">Name</label>
+            <input id="displayNameInput" type="text" maxlength="24" placeholder="Enter your display name" autocomplete="nickname" />
+          </div>
+
+          <div class="field">
+            <label>Available characters</label>
+            <div class="chooser" id="characterChooser"></div>
+          </div>
+
+          <div class="error" id="selectionError"></div>
+
+          <div class="actions">
+            <button type="button" class="secondary" id="backBtn">Back</button>
+            <button type="button" class="primary" id="continueBtn">Join Room</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./src/character-select.js"></script>
+  </body>
+</html>

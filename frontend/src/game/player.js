@@ -6,10 +6,10 @@ import Phaser from 'phaser';
  */
 
 export default class Player {
-  constructor(scene, x, y) {
+  constructor(scene, x, y, characterKey = 'adam') {
     this.scene = scene;
 
-    this.characterKey = 'adam';
+    this.characterKey = characterKey;
     this.currentDirection = 'down';
 
     this.sprite = scene.physics.add.sprite(x, y, this.characterKey);
@@ -31,7 +31,10 @@ export default class Player {
     // Velocity for smooth movement
     this.velocityX = 0;
     this.velocityY = 0;
-    this.speed = 120;
+    this.speed = 200;
+    this.isSitting = false;
+    this.isMovementLocked = false;
+    this.isMoving = false;
     
     // Setup camera follow
     scene.cameras.main.startFollow(this.sprite, true);
@@ -50,6 +53,12 @@ export default class Player {
   }
   
   update() {
+    if (this.isMovementLocked || this.scene.chatInputActive) {
+      this.sprite.body.setVelocity(0, 0);
+      this.isMoving = false;
+      return;
+    }
+
     // Reset velocity
     this.velocityX = 0;
     this.velocityY = 0;
@@ -81,6 +90,9 @@ export default class Player {
         `${this.characterKey}_idle_${this.currentDirection}`,
         true,
       );
+      this.isMoving = false;
+    } else {
+      this.isMoving = true;
     }
     
     // Apply velocity to sprite
@@ -91,6 +103,16 @@ export default class Player {
     return {
       x: this.sprite.x,
       y: this.sprite.y,
+    };
+  }
+
+  getSyncState() {
+    return {
+      x: this.sprite.x,
+      y: this.sprite.y,
+      direction: this.currentDirection,
+      isMoving: this.isMoving,
+      isSitting: this.isSitting,
     };
   }
   
@@ -114,6 +136,51 @@ export default class Player {
     }
 
     this.sprite.setPosition(nextX, nextY);
+  }
+
+  setSitting(direction) {
+    this.isSitting = true;
+    this.isMovementLocked = true;
+    this.isMoving = false;
+    this.currentDirection = direction;
+    this.sprite.body.setVelocity(0, 0);
+    this.sprite.anims.play(`${this.characterKey}_sit_${direction}`, true);
+  }
+
+  setMovementLocked(locked) {
+    this.isMovementLocked = Boolean(locked);
+
+    if (this.isMovementLocked) {
+      this.sprite.body.setVelocity(0, 0);
+      this.isMoving = false;
+    }
+  }
+
+  setStanding(direction = this.currentDirection) {
+    this.isSitting = false;
+    this.isMovementLocked = false;
+    this.isMoving = false;
+    this.currentDirection = direction;
+    this.sprite.body.setVelocity(0, 0);
+    this.sprite.anims.play(`${this.characterKey}_idle_${direction}`, true);
+  }
+
+  setCharacterKey(characterKey) {
+    if (typeof characterKey !== 'string' || characterKey.length === 0) {
+      return;
+    }
+
+    if (this.characterKey === characterKey) {
+      return;
+    }
+
+    this.characterKey = characterKey;
+    this.sprite.setTexture(characterKey);
+
+    const activeAnim = this.isSitting
+      ? `${this.characterKey}_sit_${this.currentDirection}`
+      : `${this.characterKey}_idle_${this.currentDirection}`;
+    this.sprite.anims.play(activeAnim, true);
   }
   
   destroy() {
