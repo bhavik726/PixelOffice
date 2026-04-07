@@ -111,7 +111,62 @@
 
 .po-chat-composer {
   display: flex;
+  flex-direction: column;
   gap: 8px;
+}
+
+.po-chat-composer-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.po-chat-emoji-picker {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.92);
+  box-shadow: 0 14px 32px rgba(2, 6, 23, 0.45);
+}
+
+.po-chat-emoji-picker[hidden] {
+  display: none;
+}
+
+.po-chat-emoji-btn,
+.po-chat-emoji-option {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.po-chat-emoji-btn {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  flex: 0 0 auto;
+}
+
+.po-chat-emoji-option {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+
+.po-chat-emoji-btn:hover,
+.po-chat-emoji-option:hover {
+  transform: translateY(-1px);
+  border-color: rgba(125, 211, 252, 0.6);
 }
 
 .po-chat-input {
@@ -140,4 +195,24 @@
   min-width: 74px;
   padding: 0 14px;
   font-size: 12px;
+}
+
+@media (max-width: 420px) {
+  .po-chat-emoji-picker {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .po-chat-composer-row {
+    flex-wrap: wrap;
+  }
+
+  .po-chat-input {
+    width: 100%;
+    order: -1;
+    flex-basis: 100%;
+  }
+
+  .po-chat-send {
+    flex: 1;
+  }
 }

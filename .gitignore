@@ -21,3 +21,6 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+#whiteboard file From WBO open source clone
+whiteboard/

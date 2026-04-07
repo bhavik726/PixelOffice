@@ -1,0 +1,127 @@
+.wbo-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.wbo-modal.is-open {
+  display: flex;
+  pointer-events: auto;
+}
+
+.wbo-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.wbo-container {
+  position: relative;
+  width: 90vw;
+  height: 90vh;
+  max-width: 1400px;
+  max-height: 800px;
+  background: #1e293b;
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.wbo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: #0f172a;
+  border-bottom: 1px solid #334155;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.wbo-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wbo-title strong {
+  color: #f1f5f9;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.wbo-title span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.wbo-close-button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  min-width: 40px;
+  min-height: 40px;
+  appearance: none;
+  pointer-events: auto;
+  position: relative;
+  z-index: 20;
+  transition: all 0.2s ease;
+}
+
+.wbo-close-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.wbo-close-button:active {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  transform: scale(0.95);
+}
+
+.wbo-close-button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+  color: #ffffff;
+}
+
+.wbo-iframe {
+  flex: 1;
+  border: none;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  pointer-events: auto;
+}

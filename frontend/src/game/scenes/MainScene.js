@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 import Player from '../player';
 import { setupCollisions } from '../handlers/collision/collisionHandler';
 import { setupChairInteraction } from '../handlers/interactions/chairInteraction';
+import { setupWhiteboardInteraction } from '../handlers/interactions/whiteboardInteraction';
 import { createCharacterAnims } from '../animations/CharacterAnimations';
+import WBOOverlay from '../../ui/WBOOverlay';
 
 const CHARACTER_KEYS = new Set(['adam', 'ash', 'lucy', 'nancy']);
 
@@ -45,9 +47,14 @@ export default class MainScene extends Phaser.Scene {
     this.localDisplayName = '';
     this.debugText = null;
     this.chairInteraction = null;
+    this.whiteboardInteraction = null;
+    this.wboOverlay = null;
+    this.whiteboardActive = false;
     this.chatBubbles = new Map();
     this.chatOverlay = null;
     this.chatInputActive = false;
+    this.isLeavingRoom = false;
+    this.leaveRoomButton = null;
   }
   
   /**
@@ -180,6 +187,13 @@ export default class MainScene extends Phaser.Scene {
     // Setup tile collisions after map/layers/player are ready.
     this.collidableLayers = setupCollisions(this, this.tilemap, this.player.sprite) || [];
     this.chairInteraction = setupChairInteraction(this, this.tilemap, this.player);
+    this.wboOverlay = new WBOOverlay(this);
+    this.whiteboardInteraction = setupWhiteboardInteraction(
+      this,
+      this.tilemap,
+      this.player,
+      this.wboOverlay,
+    );
     this.events.once('shutdown', this.shutdown, this);
     this.events.once('destroy', this.shutdown, this);
 
@@ -225,6 +239,42 @@ export default class MainScene extends Phaser.Scene {
     logoutText.on('pointerup', () => {
       this.logout();
     });
+
+    if (!this.leaveRoomButton) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'Leave Room';
+      button.style.position = 'fixed';
+      button.style.left = '16px';
+      button.style.top = '16px';
+      button.style.zIndex = '99999';
+      button.style.padding = '10px 14px';
+      button.style.border = '1px solid rgba(239, 68, 68, 0.65)';
+      button.style.borderRadius = '10px';
+      button.style.background = 'rgba(127, 29, 29, 0.92)';
+      button.style.color = '#fecaca';
+      button.style.fontSize = '13px';
+      button.style.fontWeight = '600';
+      button.style.cursor = 'pointer';
+      button.style.boxShadow = '0 10px 20px rgba(0, 0, 0, 0.35)';
+      button.style.pointerEvents = 'auto';
+      button.style.backdropFilter = 'blur(8px)';
+
+      button.addEventListener('mouseenter', () => {
+        button.style.background = 'rgba(153, 27, 27, 0.98)';
+        button.style.color = '#ffffff';
+      });
+      button.addEventListener('mouseleave', () => {
+        button.style.background = 'rgba(127, 29, 29, 0.92)';
+        button.style.color = '#fecaca';
+      });
+      button.addEventListener('click', () => {
+        void this.leaveRoom();
+      });
+
+      document.body.appendChild(button);
+      this.leaveRoomButton = button;
+    }
   }
   
   /**
@@ -238,6 +288,34 @@ export default class MainScene extends Phaser.Scene {
     }
     window.location.href = '/login.html';
   }
+
+  async leaveRoom() {
+    if (this.isLeavingRoom) {
+      return;
+    }
+
+    this.isLeavingRoom = true;
+
+    // Close map overlays before leaving so controls/UI are reset.
+    this.wboOverlay?.close?.();
+    this.chatOverlay?.closeInput?.();
+
+    try {
+      await this.room?.leave?.(true);
+    } catch (error) {
+      console.warn('Failed to leave Colyseus room cleanly', error);
+    }
+
+    this.room = null;
+
+    try {
+      window.localStorage.removeItem('colyseus_room_id');
+    } catch {
+      // ignore storage failures and continue redirect
+    }
+
+    window.location.href = '/lobby.html';
+  }
   
   /**
    * Update loop (called every frame)
@@ -245,6 +323,7 @@ export default class MainScene extends Phaser.Scene {
   update() {
     if (this.player) {
       this.chairInteraction?.update();
+      this.whiteboardInteraction?.update();
       this.player.update();
 
       if (this.localNameText && this.player.sprite) {
@@ -272,8 +351,17 @@ export default class MainScene extends Phaser.Scene {
     this.chairInteraction?.destroy();
     this.chairInteraction = null;
 
+    this.whiteboardInteraction?.destroy();
+    this.whiteboardInteraction = null;
+
+    this.wboOverlay?.destroy?.();
+    this.wboOverlay = null;
+
     this.chatOverlay?.destroy?.();
     this.chatOverlay = null;
+
+    this.leaveRoomButton?.remove?.();
+    this.leaveRoomButton = null;
 
     this.chatBubbles.forEach((bubble) => bubble.text?.destroy?.());
     this.chatBubbles.clear();
@@ -335,7 +423,18 @@ export default class MainScene extends Phaser.Scene {
 
     if (isLocal && this.player) {
       this.player.setCharacterKey(resolvedCharacterKey);
-      this.player.setPosition(resolvedX, resolvedY);
+      const localPosition = this.player.getPosition();
+      const drift = Phaser.Math.Distance.Between(
+        localPosition.x,
+        localPosition.y,
+        resolvedX,
+        resolvedY,
+      );
+
+      // Avoid jitter from constant server echo corrections; only hard-correct when drift is meaningful.
+      if (drift > 28) {
+        this.player.setPosition(resolvedX, resolvedY);
+      }
 
       const label = username || userId || sessionId.slice(0, 8);
       this.localDisplayName = label;

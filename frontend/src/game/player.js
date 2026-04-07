@@ -36,9 +36,16 @@ export default class Player {
     this.isMovementLocked = false;
     this.isMoving = false;
     
-    // Setup camera follow
-    scene.cameras.main.startFollow(this.sprite, true);
-    scene.cameras.main.setBounds(0, 0, scene.tilemap.widthInPixels, scene.tilemap.heightInPixels);
+    // Setup camera follow with a tight lock so POV moves directly with the character.
+    this.cameraLerp = 1;
+    this.cameraZoomDesktop = 2.1;
+    this.cameraZoomMobile = 1.7;
+    this.configureCamera();
+
+    this.boundResizeHandler = () => {
+      this.applyCameraZoom();
+    };
+    this.scene.scale.on('resize', this.boundResizeHandler);
     
     // Setup input keys for movement
     this.setupInput();
@@ -53,7 +60,7 @@ export default class Player {
   }
   
   update() {
-    if (this.isMovementLocked || this.scene.chatInputActive) {
+    if (this.isMovementLocked || this.scene.chatInputActive || this.scene.whiteboardActive) {
       this.sprite.body.setVelocity(0, 0);
       this.isMoving = false;
       return;
@@ -62,27 +69,30 @@ export default class Player {
     // Reset velocity
     this.velocityX = 0;
     this.velocityY = 0;
-    
-    // Handle arrow keys and WASD
-    if (this.keys.left.isDown || this.keys.a.isDown) {
+
+    // Resolve key states first so we can control movement and animation priority explicitly.
+    const leftDown = this.keys.left.isDown || this.keys.a.isDown;
+    const rightDown = this.keys.right.isDown || this.keys.d.isDown;
+    const upDown = this.keys.up.isDown || this.keys.w.isDown;
+    const downDown = this.keys.down.isDown || this.keys.s.isDown;
+
+    if (leftDown && !rightDown) {
       this.velocityX = -this.speed;
-      this.currentDirection = 'left';
-      this.sprite.anims.play(`${this.characterKey}_run_left`, true);
-    }
-    if (this.keys.right.isDown || this.keys.d.isDown) {
+    } else if (rightDown && !leftDown) {
       this.velocityX = this.speed;
-      this.currentDirection = 'right';
-      this.sprite.anims.play(`${this.characterKey}_run_right`, true);
     }
-    if (this.keys.up.isDown || this.keys.w.isDown) {
+
+    if (upDown && !downDown) {
       this.velocityY = -this.speed;
-      this.currentDirection = 'up';
-      this.sprite.anims.play(`${this.characterKey}_run_up`, true);
-    }
-    if (this.keys.down.isDown || this.keys.s.isDown) {
+    } else if (downDown && !upDown) {
       this.velocityY = this.speed;
-      this.currentDirection = 'down';
-      this.sprite.anims.play(`${this.characterKey}_run_down`, true);
+    }
+
+    // Keep diagonal speed equal to cardinal speed.
+    if (this.velocityX !== 0 && this.velocityY !== 0) {
+      const diagonal = this.speed / Math.sqrt(2);
+      this.velocityX = this.velocityX > 0 ? diagonal : -diagonal;
+      this.velocityY = this.velocityY > 0 ? diagonal : -diagonal;
     }
 
     if (this.velocityX === 0 && this.velocityY === 0) {
@@ -92,6 +102,18 @@ export default class Player {
       );
       this.isMoving = false;
     } else {
+      // Horizontal animation takes precedence for diagonal movement.
+      if (this.velocityX < 0) {
+        this.currentDirection = 'left';
+      } else if (this.velocityX > 0) {
+        this.currentDirection = 'right';
+      } else if (this.velocityY < 0) {
+        this.currentDirection = 'up';
+      } else if (this.velocityY > 0) {
+        this.currentDirection = 'down';
+      }
+
+      this.sprite.anims.play(`${this.characterKey}_run_${this.currentDirection}`, true);
       this.isMoving = true;
     }
     
@@ -182,8 +204,28 @@ export default class Player {
       : `${this.characterKey}_idle_${this.currentDirection}`;
     this.sprite.anims.play(activeAnim, true);
   }
+
+  configureCamera() {
+    const camera = this.scene.cameras.main;
+    camera.setBounds(0, 0, this.scene.tilemap.widthInPixels, this.scene.tilemap.heightInPixels);
+    camera.setRoundPixels(true);
+    camera.startFollow(this.sprite, true, this.cameraLerp, this.cameraLerp);
+    this.applyCameraZoom();
+  }
+
+  applyCameraZoom() {
+    const camera = this.scene.cameras.main;
+    const screenWidth = Number(window.innerWidth || this.scene.scale.width || 0);
+    const zoom = screenWidth <= 768 ? this.cameraZoomMobile : this.cameraZoomDesktop;
+    camera.setZoom(zoom);
+  }
   
   destroy() {
+    if (this.boundResizeHandler) {
+      this.scene.scale.off('resize', this.boundResizeHandler);
+      this.boundResizeHandler = null;
+    }
+
     this.sprite.destroy();
   }
 }

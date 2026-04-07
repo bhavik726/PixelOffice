@@ -125,6 +125,7 @@ export async function createGame() {
 
     scene.chatOverlay = new ChatOverlay(scene);
     scene.chatOverlay.bindRoom(room);
+
     
     // Bind player state listeners
     bindPlayerListeners(scene);

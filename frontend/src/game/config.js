@@ -10,6 +10,9 @@ const GameConfig = {
   width: window.innerWidth,
   height: window.innerHeight,
   backgroundColor: '#1a1a1a',
+  pixelArt: true,
+  antialias: false,
+  roundPixels: true,
   
   physics: {
     default: 'arcade',
@@ -25,8 +28,8 @@ const GameConfig = {
   
   // Scale to fit window
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    mode: Phaser.Scale.RESIZE,
+    autoCenter: Phaser.Scale.NO_CENTER,
     expandParent: true,
   },
 };

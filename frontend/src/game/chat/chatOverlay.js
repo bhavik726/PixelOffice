@@ -1,6 +1,7 @@
 import './chat.css';
 
 const CHAT_HIDDEN_KEY = 'pixel_office_chat_hidden';
+const EMOJI_OPTIONS = ['😀', '😄', '😂', '😍', '🤔', '😎', '🔥', '✨', '💬', '🎮', '👍', '🙏'];
 
 function getStoredBoolean(key, fallback = false) {
   try {
@@ -52,12 +53,15 @@ export default class ChatOverlay {
     this.sendButton = null;
     this.toggleButton = null;
     this.emptyState = null;
+    this.emojiButton = null;
+    this.emojiPicker = null;
     this.messageCount = 0;
     this.isCollapsed = getStoredBoolean(CHAT_HIDDEN_KEY, false);
     this.boundChatHandler = null;
     this.boundDestroyHandler = null;
     this.boundWindowKeydown = null;
     this.boundInputKeydown = null;
+    this.boundDocumentPointerDown = null;
     this.lockedForChat = false;
   }
 
@@ -113,7 +117,37 @@ export default class ChatOverlay {
     sendButton.type = 'submit';
     sendButton.textContent = 'Send';
 
-    composer.append(input, sendButton);
+    const emojiButton = document.createElement('button');
+    emojiButton.className = 'po-chat-emoji-btn';
+    emojiButton.type = 'button';
+    emojiButton.textContent = '☺';
+    emojiButton.setAttribute('aria-label', 'Open emoji picker');
+
+    const emojiPicker = document.createElement('div');
+    emojiPicker.className = 'po-chat-emoji-picker';
+    emojiPicker.hidden = true;
+
+    EMOJI_OPTIONS.forEach((emoji) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'po-chat-emoji-option';
+      button.textContent = emoji;
+      button.setAttribute('aria-label', `Insert ${emoji}`);
+      button.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+      });
+      button.addEventListener('click', () => {
+        this.insertEmoji(emoji);
+        this.setEmojiPickerVisible(false);
+      });
+      emojiPicker.appendChild(button);
+    });
+
+    const composerRow = document.createElement('div');
+    composerRow.className = 'po-chat-composer-row';
+    composerRow.append(input, emojiButton, sendButton);
+
+    composer.append(emojiPicker, composerRow);
     body.append(log, composer);
     shell.append(header, body);
     root.appendChild(shell);
@@ -125,6 +159,15 @@ export default class ChatOverlay {
     composer.addEventListener('submit', (event) => {
       event.preventDefault();
       void this.sendCurrentMessage();
+    });
+
+    emojiButton.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+    });
+
+    emojiButton.addEventListener('click', () => {
+      this.setEmojiPickerVisible(!this.emojiPicker || this.emojiPicker.hidden);
+      this.input?.focus?.();
     });
 
     this.boundInputKeydown = (event) => {
@@ -153,6 +196,7 @@ export default class ChatOverlay {
 
     input.addEventListener('blur', () => {
       this.scene.chatInputActive = false;
+      this.setEmojiPickerVisible(false);
       if (this.lockedForChat) {
         this.scene.player?.setMovementLocked?.(false);
       }
@@ -164,6 +208,8 @@ export default class ChatOverlay {
     this.log = log;
     this.input = input;
     this.sendButton = sendButton;
+    this.emojiButton = emojiButton;
+    this.emojiPicker = emojiPicker;
     this.toggleButton = toggleButton;
     this.emptyState = emptyState;
 
@@ -213,6 +259,43 @@ export default class ChatOverlay {
 
     window.addEventListener('keydown', this.boundWindowKeydown);
 
+    this.boundDocumentPointerDown = (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        if (document.activeElement === this.input) {
+          this.input?.blur?.();
+        }
+        return;
+      }
+
+      const clickedInsideChat = this.root?.contains(target);
+      const clickedInput = target === this.input || target.closest?.('.po-chat-input');
+      const clickedEmojiControl =
+        target === this.emojiButton ||
+        target.closest?.('.po-chat-emoji-btn') ||
+        target.closest?.('.po-chat-emoji-picker');
+
+      if (!clickedInsideChat) {
+        this.setEmojiPickerVisible(false);
+        if (document.activeElement === this.input) {
+          this.input?.blur?.();
+        }
+        return;
+      }
+
+      if (clickedInput || clickedEmojiControl || target.closest?.('.po-chat-send')) {
+        return;
+      }
+
+      this.setEmojiPickerVisible(false);
+
+      if (document.activeElement === this.input) {
+        this.input?.blur?.();
+      }
+    };
+
+    document.addEventListener('pointerdown', this.boundDocumentPointerDown, true);
+
     this.boundDestroyHandler = () => {
       this.destroy();
     };
@@ -232,6 +315,31 @@ export default class ChatOverlay {
     setStoredBoolean(CHAT_HIDDEN_KEY, this.isCollapsed);
     if (shouldFocus && !this.isCollapsed) {
       this.input?.focus?.();
+    }
+  }
+
+  setEmojiPickerVisible(visible) {
+    if (this.emojiPicker) {
+      this.emojiPicker.hidden = !visible;
+    }
+  }
+
+  insertEmoji(emoji) {
+    const input = this.input;
+    if (!input) {
+      return;
+    }
+
+    const currentValue = input.value || '';
+    const start = Number.isFinite(input.selectionStart) ? input.selectionStart : currentValue.length;
+    const end = Number.isFinite(input.selectionEnd) ? input.selectionEnd : currentValue.length;
+    const nextValue = `${currentValue.slice(0, start)}${emoji}${currentValue.slice(end)}`.slice(0, 180);
+
+    input.value = nextValue;
+    const nextCursor = Math.min(start + emoji.length, nextValue.length);
+    input.focus();
+    if (typeof input.setSelectionRange === 'function') {
+      input.setSelectionRange(nextCursor, nextCursor);
     }
   }
 
@@ -283,6 +391,11 @@ export default class ChatOverlay {
       this.boundWindowKeydown = null;
     }
 
+    if (this.boundDocumentPointerDown) {
+      document.removeEventListener('pointerdown', this.boundDocumentPointerDown, true);
+      this.boundDocumentPointerDown = null;
+    }
+
     if (this.input && this.boundInputKeydown) {
       this.input.removeEventListener('keydown', this.boundInputKeydown);
     }
@@ -297,6 +410,8 @@ export default class ChatOverlay {
     this.log = null;
     this.input = null;
     this.sendButton = null;
+    this.emojiButton = null;
+    this.emojiPicker = null;
     this.toggleButton = null;
     this.emptyState = null;
     this.room = null;

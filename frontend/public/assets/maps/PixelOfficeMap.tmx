@@ -501,7 +501,7 @@
    <properties>
     <property name="direction" value="down"/>
     <property name="sitx" type="int" value="31"/>
-    <property name="sity" type="int" value="13"/>
+    <property name="sity" type="int" value="14"/>
     <property name="type" value="chair"/>
    </properties>
   </object>
@@ -509,7 +509,7 @@
    <properties>
     <property name="direction" value="down"/>
     <property name="sitx" type="int" value="34"/>
-    <property name="sity" type="int" value="13"/>
+    <property name="sity" type="int" value="14"/>
     <property name="type" value="chair"/>
    </properties>
   </object>
@@ -517,7 +517,7 @@
    <properties>
     <property name="direction" value="down"/>
     <property name="sitx" type="int" value="37"/>
-    <property name="sity" type="int" value="13"/>
+    <property name="sity" type="int" value="14"/>
     <property name="type" value="chair"/>
    </properties>
   </object>
@@ -690,16 +690,19 @@
   </object>
   <object id="70" name="whiteboard" x="993.333" y="272" width="57.3333" height="46.6667">
    <properties>
+    <property name="id" type="int" value="1"/>
     <property name="type" value="whiteboard"/>
    </properties>
   </object>
   <object id="71" name="whiteboard" x="958.667" y="42.6667" width="64" height="53.3333">
    <properties>
+    <property name="id" type="int" value="2"/>
     <property name="type" value="whiteboard"/>
    </properties>
   </object>
   <object id="72" name="whiteboard" x="412" y="586.667" width="70.6667" height="54.6667">
    <properties>
+    <property name="id" type="int" value="3"/>
     <property name="type" value="whiteboard"/>
    </properties>
   </object>

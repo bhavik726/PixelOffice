@@ -101,7 +101,19 @@ async function createColyseusRoomForDbRoom(room: Room): Promise<string> {
 async function ensureRealtimeRoomMapping(room: Room): Promise<string> {
   const existing = room.colyseus_room_id?.trim();
   if (existing) {
-    return existing;
+    try {
+      const liveRoom = matchMaker.getRoomById(existing);
+      if (liveRoom) {
+        return existing;
+      }
+    } catch (err: unknown) {
+      logger.warn('Detected stale Colyseus room mapping; recreating', {
+        dbRoomId: room.id,
+        staleColyseusRoomId: existing,
+        roomType: room.type,
+        error: toErrorMessage(err),
+      });
+    }
   }
 
   try {

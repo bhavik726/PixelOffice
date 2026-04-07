@@ -955,7 +955,7 @@
                         {
                          "name":"sity",
                          "type":"int",
-                         "value":13
+                         "value":14
                         }, 
                         {
                          "name":"type",
@@ -988,7 +988,7 @@
                         {
                          "name":"sity",
                          "type":"int",
-                         "value":13
+                         "value":14
                         }, 
                         {
                          "name":"type",
@@ -1021,7 +1021,7 @@
                         {
                          "name":"sity",
                          "type":"int",
-                         "value":13
+                         "value":14
                         }, 
                         {
                          "name":"type",
@@ -1724,6 +1724,11 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"id",
+                         "type":"int",
+                         "value":1
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"whiteboard"
@@ -1742,6 +1747,11 @@
                  "opacity":1,
                  "properties":[
                         {
+                         "name":"id",
+                         "type":"int",
+                         "value":2
+                        }, 
+                        {
                          "name":"type",
                          "type":"string",
                          "value":"whiteboard"
@@ -1759,6 +1769,11 @@
                  "name":"whiteboard",
                  "opacity":1,
                  "properties":[
+                        {
+                         "name":"id",
+                         "type":"int",
+                         "value":3
+                        }, 
                         {
                          "name":"type",
                          "type":"string",
