@@ -299,6 +299,23 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
         timestamp: Date.now(),
       });
     });
+
+    this.onMessage('peer-id', (client, message: { peerId?: string }) => {
+      this.touchActivity();
+
+      if (typeof message?.peerId !== 'string') {
+        return;
+      }
+
+      this.broadcast(
+        'peer-id',
+        {
+          sessionId: client.sessionId,
+          peerId: message.peerId,
+        },
+        { except: client },
+      );
+    });
   }
 
   async onJoin(

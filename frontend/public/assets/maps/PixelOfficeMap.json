@@ -1794,6 +1794,50 @@
         }, 
         {
          "draworder":"topdown",
+         "id":17,
+         "name":"meeting",
+         "objects":[
+                {
+                 "height":288,
+                 "id":75,
+                 "name":"meeting ",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":510.666666666667,
+                 "x":65.3333333333333,
+                 "y":640
+                }],
+         "opacity":1,
+         "properties":[
+                {
+                 "name":"xbottom",
+                 "type":"int",
+                 "value":17
+                }, 
+                {
+                 "name":"xtop",
+                 "type":"int",
+                 "value":2
+                }, 
+                {
+                 "name":"ybottom",
+                 "type":"int",
+                 "value":28
+                }, 
+                {
+                 "name":"ytop",
+                 "type":"int",
+                 "value":20
+                }],
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
          "id":14,
          "name":"player_spawn",
          "objects":[
@@ -1815,8 +1859,8 @@
          "x":0,
          "y":0
         }],
- "nextlayerid":17,
- "nextobjectid":74,
+ "nextlayerid":18,
+ "nextobjectid":76,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.12.1",

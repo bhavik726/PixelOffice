@@ -2,6 +2,10 @@ import Phaser from "phaser";
 import { Client, getStateCallbacks as _getStateCallbacks } from "colyseus.js";
 import GameConfig from "./game/config";
 import ChatOverlay from "./game/chat/chatOverlay";
+import { MediaControls } from "./game/webrtc/MediaControls";
+import { PeerManager } from "./game/webrtc/PeerManager";
+import { ProximityManager } from "./game/webrtc/ProximityManager";
+import { VideoOverlay } from "./game/webrtc/VideoOverlay";
 
 const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
@@ -15,23 +19,6 @@ const AUTH_TOKEN_STORAGE_KEY = "supabase_access_token";
 const COLYSEUS_ROOM_ID_STORAGE_KEY = "colyseus_room_id";
 const DISPLAY_NAME_STORAGE_KEY = "pixel_office_display_name";
 const CHARACTER_KEY_STORAGE_KEY = "pixel_office_character_key";
-
-function getHttpBaseFromWs(wsUrl) {
-  return wsUrl.replace(/^ws(s?):\/\//, "http$1://");
-}
-
-async function getAvailableRoomsCompat(client, roomName) {
-  if (typeof client.getAvailableRooms === "function") {
-    return await client.getAvailableRooms(roomName);
-  }
-
-  const httpBase = getHttpBaseFromWs(COLYSEUS_SERVER);
-  const res = await fetch(`${httpBase}/matchmake/rooms/${encodeURIComponent(roomName)}`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch available rooms (${res.status})`);
-  }
-  return await res.json();
-}
 
 function hasStateCallbacks() {
   return typeof _getStateCallbacks === "function";
@@ -125,6 +112,62 @@ export async function createGame() {
 
     scene.chatOverlay = new ChatOverlay(scene);
     scene.chatOverlay.bindRoom(room);
+
+    const mediaControls = new MediaControls();
+    let videoOverlay = null;
+    let peerManager = null;
+    let proximityManager = null;
+
+    const cleanupWebRTC = () => {
+      console.log('[game.js] Cleaning up WebRTC');
+      proximityManager?.destroy?.();
+      peerManager?.destroy?.();
+      mediaControls.destroy();
+      videoOverlay?.destroy?.();
+
+      proximityManager = null;
+      peerManager = null;
+      videoOverlay = null;
+    };
+
+    console.log('[game.js] Initializing MediaControls');
+    const mediaReady = await mediaControls.init();
+    console.log('[game.js] MediaControls ready:', mediaReady);
+    console.log('[game.js] Local stream available:', !!mediaControls.getStream());
+
+    if (!mediaReady || !mediaControls.getStream()) {
+      console.error('[game.js] CRITICAL: WebRTC media stream not available - proximity voice/video disabled');
+      console.log('[game.js] User may have denied camera/microphone permissions');
+      videoOverlay = new VideoOverlay(mediaControls);
+      // Continue with null stream - ProximityManager should be disabled
+    } else {
+      videoOverlay = new VideoOverlay(mediaControls);
+      videoOverlay.setLocalStream(mediaControls.getStream());
+    }
+
+    console.log('[game.js] Creating PeerManager with stream:', !!mediaControls.getStream());
+    peerManager = new PeerManager(room, mediaControls.getStream(), videoOverlay);
+    console.log('[game.js] Initializing PeerManager');
+    await peerManager.init();
+    console.log('[game.js] PeerManager initialized');
+
+    console.log('[game.js] Creating ProximityManager');
+    proximityManager = new ProximityManager(scene, peerManager);
+    console.log('[game.js] Starting ProximityManager');
+    proximityManager.start();
+    console.log('[game.js] ProximityManager started');
+
+    const originalLeaveRoom = typeof scene.leaveRoom === "function" ? scene.leaveRoom.bind(scene) : null;
+    scene.leaveRoom = async (...args) => {
+      cleanupWebRTC();
+      if (originalLeaveRoom) {
+        return await originalLeaveRoom(...args);
+      }
+      return undefined;
+    };
+
+    scene.events.once("shutdown", cleanupWebRTC);
+    scene.events.once("destroy", cleanupWebRTC);
 
     
     // Bind player state listeners
