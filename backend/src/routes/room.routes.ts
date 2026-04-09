@@ -6,14 +6,13 @@ import {
   getRoomById,
   getAllRooms,
 } from '../controllers/room.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
 
 router.get('/public', getPublicRooms);
-router.get('/', authMiddleware, getAllRooms);
-router.post('/create', authMiddleware, createRoom);
-router.post('/join', authMiddleware, joinRoom);
+router.get('/', getAllRooms);
+router.post('/create', createRoom);
+router.post('/join', joinRoom);
 router.get('/:id', getRoomById);
 
 export default router;

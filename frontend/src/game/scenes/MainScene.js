@@ -285,15 +285,15 @@ export default class MainScene extends Phaser.Scene {
   }
   
   /**
-   * Logout and redirect to login page
+   * Exit current session and return to lobby.
    */
   logout() {
     try {
-      window.localStorage.removeItem('supabase_access_token');
+      window.localStorage.removeItem('colyseus_room_id');
     } catch {
       // ignore
     }
-    window.location.href = '/login.html';
+    window.location.href = '/lobby.html';
   }
 
   async leaveRoom() {

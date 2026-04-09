@@ -1,5 +1,5 @@
-const AUTH_TOKEN_STORAGE_KEY = "supabase_access_token";
 const COLYSEUS_ROOM_ID_STORAGE_KEY = "colyseus_room_id";
+const GUEST_ID_STORAGE_KEY = "pixel_office_guest_id";
 const CHARACTER_SELECT_PAGE = "/select-character.html";
 
 const API_BASE_URL =
@@ -27,16 +27,42 @@ const createRoomErrorEl = document.getElementById("createRoomError");
 const findRoomsErrorEl = document.getElementById("findRoomsError");
 
 const logoutBtn = document.getElementById("logoutBtn");
+if (logoutBtn) {
+  logoutBtn.textContent = "Reset Guest";
+}
 
 let activePasswordRoomId = null;
 let joiningRoomBusy = false;
 
-function getToken() {
+function getStoredValue(key) {
   try {
-    return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
+}
+
+function setStoredValue(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function ensureGuestId() {
+  const existing = getStoredValue(GUEST_ID_STORAGE_KEY);
+  if (existing) {
+    return existing;
+  }
+
+  const generated =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `guest-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+
+  setStoredValue(GUEST_ID_STORAGE_KEY, generated);
+  return generated;
 }
 
 function setInlineError(el, message) {
@@ -50,15 +76,7 @@ function clearInlineError(el) {
 }
 
 function apiFetch(url, options = {}) {
-  const token = getToken();
-  if (!token) {
-    throw new Error("Missing auth token");
-  }
-
-  const headers = {
-    ...(options.headers || {}),
-    Authorization: `Bearer ${token}`,
-  };
+  const headers = { ...(options.headers || {}) };
 
   if (options.body && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
@@ -100,11 +118,12 @@ privateTabsEl.addEventListener("click", (event) => {
 
 logoutBtn.addEventListener("click", () => {
   try {
-    window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(GUEST_ID_STORAGE_KEY);
+    window.localStorage.removeItem(COLYSEUS_ROOM_ID_STORAGE_KEY);
   } catch {
     // ignore
   }
-  window.location.href = "/login.html";
+  window.location.href = "/lobby.html";
 });
 
 refreshRoomsBtn.addEventListener("click", () => {
@@ -290,30 +309,15 @@ async function connectPublicLobby() {
       ? publics.find((r) => r.type === "public") || publics[0] || null
       : null;
 
-    // 2) If none exists, create it
     if (!publicRoom) {
-      const createRes = await apiFetch(`${API_BASE_URL}/rooms/create`, {
-        method: "POST",
-        body: JSON.stringify({
-          name: "Public Lobby",
-          description: "",
-          type: "public",
-        }),
-      });
-
-      const createData = await createRes.json().catch(() => ({}));
-      if (!createRes.ok) {
-        throw new Error(createData.message || "Failed to create public lobby");
-      }
-
-      publicRoom = createData;
+      throw new Error("Public lobby is not available yet. Please retry in a few seconds.");
     }
 
     if (!publicRoom?.id) {
       throw new Error("Public room missing id");
     }
 
-    // 3) Join it
+    // 2) Join it
     const joinRes = await apiFetch(`${API_BASE_URL}/rooms/join`, {
       method: "POST",
       body: JSON.stringify({ room_id: publicRoom.id }),
@@ -367,7 +371,7 @@ async function createPrivateRoomAndJoin() {
     const payload = {
       name,
       description,
-      type: "private",
+      guest_id: ensureGuestId(),
     };
     if (password) payload.password = password;
 
@@ -417,16 +421,7 @@ async function createPrivateRoomAndJoin() {
 }
 
 // Auth guard
-try {
-  if (!getToken()) {
-    window.location.href = "/login.html";
-    // stop execution after redirect
-  } else {
-    // Load private rooms when entering "Find Room"
-    togglePrivatePanel("create");
-    void loadPrivateRoomsAndRender();
-  }
-} catch {
-  window.location.href = "/login.html";
-}
+ensureGuestId();
+togglePrivatePanel("create");
+void loadPrivateRoomsAndRender();
 

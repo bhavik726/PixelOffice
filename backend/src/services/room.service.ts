@@ -52,13 +52,6 @@ async function deleteRoomsAndParticipants(roomIds: string[]): Promise<void> {
     return;
   }
 
-  const { error: participantsError } = await supabase
-    .from('room_participants')
-    .delete()
-    .in('room_id', normalizedRoomIds);
-
-  throwIfSupabaseError(participantsError);
-
   const { error: roomsError } = await supabase.from('rooms').delete().in('id', normalizedRoomIds);
 
   throwIfSupabaseError(roomsError);
@@ -303,11 +296,11 @@ export async function getAllRooms(): Promise<Room[]> {
 export async function createPrivateRoom(
   name: string,
   description: string,
-  created_by: string,
+  created_by: string | null,
   password?: string,
 ): Promise<Room> {
   const normalizedName = ensureNonEmpty(name, 'name');
-  const normalizedCreatedBy = ensureNonEmpty(created_by, 'created_by');
+  const normalizedCreatedBy = typeof created_by === 'string' ? created_by.trim() : null;
   const normalizedDescription = (description || '').trim();
 
   if (!password?.trim()) {
@@ -320,7 +313,7 @@ export async function createPrivateRoom(
       name: normalizedName,
       description: normalizedDescription,
       type: 'private',
-      created_by: normalizedCreatedBy,
+      created_by: normalizedCreatedBy || null,
       password: password.trim(),
       colyseus_room_id: null,
     })
@@ -361,7 +354,7 @@ export async function createRoom(
   name: string,
   description: string,
   type: 'public' | 'private',
-  created_by: string,
+  created_by: string | null,
   password?: string,
 ): Promise<Room> {
   if (type === 'public') {
@@ -371,11 +364,9 @@ export async function createRoom(
 }
 
 export async function joinRoom(
-  user_id: string,
   room_id: string,
   password?: string,
-): Promise<{ colyseus_room_id: string; alreadyJoined: boolean }> {
-  const normalizedUserId = ensureNonEmpty(user_id, 'user_id');
+): Promise<{ colyseus_room_id: string }> {
   const normalizedRoomId = ensureNonEmpty(room_id, 'room_id');
 
   const room = await getRoomById(normalizedRoomId);
@@ -392,27 +383,7 @@ export async function joinRoom(
   // recreate it on-demand.
   const colyseusRoomId = await ensureRealtimeRoomMapping(room);
 
-  // Track participation (upsert-style: check first, then insert).
-  const { data: existing, error: existingError } = await supabase
-    .from('room_participants')
-    .select('user_id')
-    .eq('user_id', normalizedUserId)
-    .eq('room_id', normalizedRoomId)
-    .maybeSingle();
-
-  throwIfSupabaseError(existingError);
-
-  if (existing) {
-    return { colyseus_room_id: colyseusRoomId, alreadyJoined: true };
-  }
-
-  const { error: insertError } = await supabase
-    .from('room_participants')
-    .insert({ user_id: normalizedUserId, room_id: normalizedRoomId });
-
-  throwIfSupabaseError(insertError);
-
-  return { colyseus_room_id: colyseusRoomId, alreadyJoined: false };
+  return { colyseus_room_id: colyseusRoomId };
 }
 
 export async function getRoomById(id: string): Promise<Room | null> {

@@ -65,10 +65,6 @@ function clampPosition(x: number, y: number): { x: number; y: number } {
   };
 }
 
-function isValidAvatarNumber(value: unknown): value is number {
-  return Number.isFinite(value) && Number(value) > 0;
-}
-
 function normalizeCharacterKey(value: unknown): CharacterKey | undefined {
   if (typeof value !== 'string') {
     return undefined;
@@ -447,60 +443,25 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
 
   async onJoin(
     client: Client,
-    options: { token?: string; displayName?: string; characterKey?: string } = {},
+    options: { guestId?: string; displayName?: string; characterKey?: string } = {},
   ) {
     this.touchActivity();
     this.clearEmptyRoomTimeout();
 
-    const token = options?.token;
-    if (!token) {
-      throw new Error('Missing auth token');
-    }
-
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data?.user) {
-      throw new Error('Invalid or expired auth token');
-    }
-
-    const user = data.user;
-    const meta = user.user_metadata as { username?: string; display_name?: string } | null;
-    const username =
-      normalizeDisplayName(options.displayName) ??
-      meta?.username ??
-      meta?.display_name ??
-      user.email ??
-      'Anonymous';
-    const metadata = meta as Record<string, unknown> | null;
-
-    const { data: dbUser } = await supabase
-      .from('users')
-      .select('avatar_id')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    const metadataCharacter = normalizeCharacterKey(
-      options.characterKey ?? metadata?.characterKey ?? metadata?.character ?? metadata?.avatar,
-    );
-
-    const dbAvatarNumber = Number(dbUser?.avatar_id);
-    const metadataAvatarNumber = Number(metadata?.avatar_id ?? metadata?.avatarId);
-
-    const preferredAvatarNumber = isValidAvatarNumber(dbAvatarNumber)
-      ? dbAvatarNumber
-      : isValidAvatarNumber(metadataAvatarNumber)
-        ? metadataAvatarNumber
-        : null;
+    const username = normalizeDisplayName(options.displayName) ?? 'Anonymous';
+    const metadataCharacter = normalizeCharacterKey(options.characterKey);
 
     // Pick a random avatar not currently in use only when no preferred avatar exists.
     const usedAvatarIds = [...this.state.players.values()]
       .map((p) => Number(p.avatarId))
       .filter((n) => Number.isFinite(n) && n > 0);
-    const avatarNumber = preferredAvatarNumber ?? getRandomAvailableAvatar(usedAvatarIds);
+    const avatarNumber = getRandomAvailableAvatar(usedAvatarIds);
     const characterKey = metadataCharacter ?? avatarNumberToCharacterKey(avatarNumber);
+    const normalizedGuestId = normalizeDisplayName(options.guestId)?.replace(/\s+/g, '-') || '';
 
     const player = new PlayerSchema();
     player.id = client.sessionId;
-    player.userId = user.id;
+    player.userId = normalizedGuestId || `guest-${client.sessionId}`;
     const MAP_SPAWN_X = 656;
     const MAP_SPAWN_Y = 877;
     const SPAWN_COLUMN_SPACING = 40;
@@ -577,19 +538,6 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
 
     try {
       if (this.roomVisibility === 'private') {
-        // Full cleanup: remove participants first (FK constraint), then the room row.
-        const { error: participantsError } = await supabase
-          .from('room_participants')
-          .delete()
-          .eq('room_id', this.dbRoomId);
-
-        if (participantsError) {
-          logger.warn('Failed to delete room_participants on private room dispose', {
-            dbRoomId: this.dbRoomId,
-            error: participantsError.message,
-          });
-        }
-
         const { error: roomDeleteError } = await supabase
           .from('rooms')
           .delete()

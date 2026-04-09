@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import * as roomService from '../services/room.service';
-import { AuthRequest } from '../middleware/auth.middleware';
 import { toErrorMessage } from '../utils/errors';
 import { logger } from '../utils/logger';
 
@@ -24,16 +23,16 @@ export async function getAllRooms(req: Request, res: Response) {
 
 /**
  * POST /rooms/create
- * Creates a private room for the authenticated user.
+ * Creates a private room for the current guest session.
  * Public rooms are server-managed and cannot be created via the API.
  *
- * Body: { name: string, description?: string, password: string }
+ * Body: { name: string, description?: string, password: string, guest_id?: string }
  */
-export async function createRoom(req: AuthRequest, res: Response) {
-  const { name, description, password } = req.body;
-  const userId = req.user?.id || req.user?.sub;
+export async function createRoom(req: Request, res: Response) {
+  const { name, description, password, guest_id } = req.body;
+  const guestId = typeof guest_id === 'string' ? guest_id.trim() : '';
 
-  if (!name || !userId) {
+  if (!name) {
     return res.status(400).json({ message: 'Missing required fields: name' });
   }
 
@@ -44,15 +43,15 @@ export async function createRoom(req: AuthRequest, res: Response) {
   }
 
   try {
-    const room = await roomService.createPrivateRoom(name, description ?? '', userId, password);
+    const room = await roomService.createPrivateRoom(name, description ?? '', guestId || null, password);
     logger.info('Private room created via API', {
       roomId: room.id,
       colyseusRoomId: room.colyseus_room_id,
-      createdBy: userId,
+      createdBy: guestId || null,
     });
     res.status(201).json(room);
   } catch (err: unknown) {
-    logger.error('Room create failed', { userId, error: toErrorMessage(err) });
+    logger.error('Room create failed', { guestId: guestId || null, error: toErrorMessage(err) });
     res.status(400).json({ message: toErrorMessage(err, 'Failed to create room') });
   }
 }
@@ -64,34 +63,30 @@ export async function createRoom(req: AuthRequest, res: Response) {
  *
  * Body: { room_id: string, password?: string }
  */
-export async function joinRoom(req: AuthRequest, res: Response) {
+export async function joinRoom(req: Request, res: Response) {
   const { room_id, password } = req.body;
-  const userId = req.user?.id || req.user?.sub;
 
-  if (!room_id || !userId) {
+  if (!room_id) {
     return res.status(400).json({ message: 'Missing required field: room_id' });
   }
 
   try {
-    const joinResult = await roomService.joinRoom(userId, room_id, password);
+    const joinResult = await roomService.joinRoom(room_id, password);
     logger.info('Room joined', {
       roomId: room_id,
-      userId,
       colyseusRoomId: joinResult.colyseus_room_id,
-      alreadyJoined: joinResult.alreadyJoined,
     });
     res.json({
-      message: joinResult.alreadyJoined ? 'Rejoined room' : 'Joined room',
+      message: 'Joined room',
       colyseus_room_id: joinResult.colyseus_room_id,
-      already_joined: joinResult.alreadyJoined,
     });
   } catch (err: unknown) {
-    logger.error('Room join failed', { roomId: room_id, userId, error: toErrorMessage(err) });
+    logger.error('Room join failed', { roomId: room_id, error: toErrorMessage(err) });
     res.status(400).json({ message: toErrorMessage(err, 'Failed to join room') });
   }
 }
 
-export async function getRoomById(req: AuthRequest, res: Response) {
+export async function getRoomById(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const room = await roomService.getRoomById(id);

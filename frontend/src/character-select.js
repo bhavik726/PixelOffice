@@ -1,4 +1,3 @@
-const AUTH_TOKEN_STORAGE_KEY = 'supabase_access_token';
 const COLYSEUS_ROOM_ID_STORAGE_KEY = 'colyseus_room_id';
 const DISPLAY_NAME_STORAGE_KEY = 'pixel_office_display_name';
 const CHARACTER_KEY_STORAGE_KEY = 'pixel_office_character_key';
@@ -37,18 +36,6 @@ function setStoredValue(key, value) {
   } catch {
     // ignore storage failures in browser privacy mode
   }
-}
-
-function clearStoredValue(key) {
-  try {
-    window.localStorage.removeItem(key);
-  } catch {
-    // ignore
-  }
-}
-
-function redirectToLogin() {
-  window.location.href = '/login.html';
 }
 
 function redirectToLobby() {
@@ -114,13 +101,7 @@ function loadInitialState() {
 }
 
 function validateRoomReady() {
-  const authToken = getStoredValue(AUTH_TOKEN_STORAGE_KEY);
   const roomId = getStoredValue(COLYSEUS_ROOM_ID_STORAGE_KEY);
-
-  if (!authToken) {
-    redirectToLogin();
-    return false;
-  }
 
   if (!roomId) {
     redirectToLobby();

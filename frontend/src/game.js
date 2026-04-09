@@ -16,8 +16,8 @@ const COLYSEUS_SERVER =
   (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_COLYSEUS_URL) ||
   API_BASE_URL.replace(/^http/i, (m) => (m.toLowerCase() === "https" ? "wss" : "ws"));
 const ROOM_NAME = "pixel-office";
-const AUTH_TOKEN_STORAGE_KEY = "supabase_access_token";
 const COLYSEUS_ROOM_ID_STORAGE_KEY = "colyseus_room_id";
+const GUEST_ID_STORAGE_KEY = "pixel_office_guest_id";
 const DISPLAY_NAME_STORAGE_KEY = "pixel_office_display_name";
 const CHARACTER_KEY_STORAGE_KEY = "pixel_office_character_key";
 
@@ -31,6 +31,26 @@ function getStoredValue(key) {
   } catch {
     return null;
   }
+}
+
+function ensureGuestId() {
+  const existing = getStoredValue(GUEST_ID_STORAGE_KEY);
+  if (existing) {
+    return existing;
+  }
+
+  const generated =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `guest-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+
+  try {
+    window.localStorage.setItem(GUEST_ID_STORAGE_KEY, generated);
+  } catch {
+    // ignore storage failures
+  }
+
+  return generated;
 }
 
 export async function createGame() {
@@ -61,12 +81,7 @@ export async function createGame() {
   try {
     // Setup Colyseus connection
     const client = new Client(COLYSEUS_SERVER);
-    const token = window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
-    if (!token) {
-      console.error("No auth token found. Redirecting to /login");
-      window.location.href = "/login.html";
-      return;
-    }
+    const guestId = ensureGuestId();
 
     const colyseusRoomId = window.localStorage.getItem(COLYSEUS_ROOM_ID_STORAGE_KEY);
     if (!colyseusRoomId) {
@@ -90,7 +105,7 @@ export async function createGame() {
     let room;
     try {
       room = await client.joinById(colyseusRoomId, {
-        token,
+        guestId,
         displayName,
         characterKey,
       });
@@ -231,14 +246,7 @@ export async function createGame() {
     
   } catch (error) {
     console.error("Failed to connect to Colyseus:", error);
-    // Handle invalid / expired token
-    if (error && typeof error === "object" && "message" in error) {
-      const msg = String(error.message || "");
-      if (msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("token")) {
-        window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
-        window.location.href = "/login.html";
-      }
-    }
+    window.location.href = "/lobby.html";
   }
 }
 

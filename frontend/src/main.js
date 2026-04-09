@@ -1,17 +1,8 @@
 import { createGame } from "./game";
 
-const AUTH_TOKEN_STORAGE_KEY = "supabase_access_token";
 const COLYSEUS_ROOM_ID_STORAGE_KEY = "colyseus_room_id";
 const DISPLAY_NAME_STORAGE_KEY = "pixel_office_display_name";
 const CHARACTER_KEY_STORAGE_KEY = "pixel_office_character_key";
-
-function hasAuthToken() {
-  try {
-    return typeof window !== "undefined" && !!window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
-  } catch {
-    return false;
-  }
-}
 
 function hasRoomJoinSelection() {
   try {
@@ -25,13 +16,9 @@ function hasRoomJoinSelection() {
   }
 }
 
-if (hasAuthToken()) {
-  if (hasRoomJoinSelection()) {
-    createGame();
-  } else {
-    window.location.href = "/lobby.html";
-  }
+if (hasRoomJoinSelection()) {
+  createGame();
 } else {
-  // Redirect to login page before Phaser bootstraps
-  window.location.href = "/login.html";
+  // Start new sessions at room selection.
+  window.location.href = "/lobby.html";
 }
