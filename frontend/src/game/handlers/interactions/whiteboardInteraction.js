@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-const INTERACTION_DISTANCE = 56;
+const INTERACTION_DISTANCE = 22;
 
 function getObjectProperty(object, key) {
   const properties = Array.isArray(object?.properties) ? object.properties : [];
@@ -42,8 +42,8 @@ function distanceToWhiteboard(playerX, playerY, object) {
 }
 
 function findNearestWhiteboard(map, player) {
-  const objectLayers = Array.isArray(map?.objects) ? map.objects : [];
-  const objects = objectLayers.flatMap((layer) => (Array.isArray(layer.objects) ? layer.objects : []));
+  const interactionLayer = map?.getObjectLayer?.('interactions');
+  const objects = Array.isArray(interactionLayer?.objects) ? interactionLayer.objects : [];
 
   let nearest = null;
   let nearestDistance = Number.POSITIVE_INFINITY;
@@ -83,7 +83,7 @@ export function setupWhiteboardInteraction(scene, map, player, wboOverlay) {
 
   function showPrompt(label) {
     prompt.setText(label);
-    prompt.setPosition(player.sprite.x, player.sprite.y - 42);
+    prompt.setPosition(player.sprite.x, player.sprite.y - 66);
     prompt.setVisible(true);
   }
 

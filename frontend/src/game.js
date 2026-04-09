@@ -6,6 +6,7 @@ import { MediaControls } from "./game/webrtc/MediaControls";
 import { PeerManager } from "./game/webrtc/PeerManager";
 import { ProximityManager } from "./game/webrtc/ProximityManager";
 import { VideoOverlay } from "./game/webrtc/VideoOverlay";
+import { ComputerZoneManager } from "./game/webrtc/computerZone/ComputerZoneManager";
 
 const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
@@ -117,15 +118,18 @@ export async function createGame() {
     let videoOverlay = null;
     let peerManager = null;
     let proximityManager = null;
+    let computerZoneManager = null;
 
     const cleanupWebRTC = () => {
       console.log('[game.js] Cleaning up WebRTC');
+      computerZoneManager?.destroy?.();
       proximityManager?.destroy?.();
       peerManager?.destroy?.();
       mediaControls.destroy();
       videoOverlay?.destroy?.();
 
       proximityManager = null;
+      computerZoneManager = null;
       peerManager = null;
       videoOverlay = null;
     };
@@ -138,12 +142,40 @@ export async function createGame() {
     if (!mediaReady || !mediaControls.getStream()) {
       console.error('[game.js] CRITICAL: WebRTC media stream not available - proximity voice/video disabled');
       console.log('[game.js] User may have denied camera/microphone permissions');
-      videoOverlay = new VideoOverlay(mediaControls);
+      videoOverlay = new VideoOverlay(mediaControls, {
+        localProfile: {
+          name: displayName || 'You',
+          characterKey,
+        },
+        onMediaStateChange: ({ videoEnabled, audioEnabled }) => {
+          room?.send?.('media-state', { videoEnabled, audioEnabled });
+        },
+      });
       // Continue with null stream - ProximityManager should be disabled
     } else {
-      videoOverlay = new VideoOverlay(mediaControls);
+      videoOverlay = new VideoOverlay(mediaControls, {
+        localProfile: {
+          name: displayName || 'You',
+          characterKey,
+        },
+        onMediaStateChange: ({ videoEnabled, audioEnabled }) => {
+          room?.send?.('media-state', { videoEnabled, audioEnabled });
+        },
+      });
       videoOverlay.setLocalStream(mediaControls.getStream());
+      videoOverlay.emitLocalMediaState?.();
     }
+
+    room.onMessage('media-state', (payload) => {
+      if (!payload?.sessionId) {
+        return;
+      }
+
+      videoOverlay?.updateRemoteMediaState?.(payload.sessionId, {
+        videoEnabled: payload.videoEnabled,
+        audioEnabled: payload.audioEnabled,
+      });
+    });
 
     console.log('[game.js] Creating PeerManager with stream:', !!mediaControls.getStream());
     peerManager = new PeerManager(room, mediaControls.getStream(), videoOverlay);
@@ -156,6 +188,14 @@ export async function createGame() {
     console.log('[game.js] Starting ProximityManager');
     proximityManager.start();
     console.log('[game.js] ProximityManager started');
+
+    computerZoneManager = new ComputerZoneManager({
+      room,
+      scene,
+      proximityManager,
+      mediaControls,
+    });
+    scene.computerZoneManager = computerZoneManager;
 
     const originalLeaveRoom = typeof scene.leaveRoom === "function" ? scene.leaveRoom.bind(scene) : null;
     scene.leaveRoom = async (...args) => {

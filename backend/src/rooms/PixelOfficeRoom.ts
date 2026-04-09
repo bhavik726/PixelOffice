@@ -4,6 +4,7 @@ import { getRandomAvailableAvatar } from '../utils/avatar';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
 import { supabase } from '../config/supabase';
+import { ComputerZoneState, ComputerZonePlayer } from './schema/ComputerZoneState';
 
 class PlayerSchema extends Schema {
   @type('string')
@@ -44,6 +45,9 @@ class PlayerSchema extends Schema {
 class PixelOfficeState extends Schema {
   @type({ map: PlayerSchema })
   players = new MapSchema<PlayerSchema>();
+
+  @type(ComputerZoneState)
+  computerZone = new ComputerZoneState();
 }
 
 const ROOM_INACTIVITY_TIMEOUT_MS = Number(env.ROOM_INACTIVITY_TIMEOUT_MS || '300000');
@@ -124,6 +128,35 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
   private lastActivity = Date.now();
   private disposeRequested = false;
   private emptyRoomTimeout: NodeJS.Timeout | null = null;
+
+  private toComputerZonePayload() {
+    const players: Record<
+      string,
+      {
+        sessionId: string;
+        peerId: string;
+        isSharing: boolean;
+        videoEnabled: boolean;
+        audioEnabled: boolean;
+      }
+    > = {};
+
+    this.state.computerZone.players.forEach((zonePlayer, sessionId) => {
+      players[sessionId] = {
+        sessionId: zonePlayer.sessionId,
+        peerId: zonePlayer.peerId,
+        isSharing: zonePlayer.isSharing,
+        videoEnabled: zonePlayer.videoEnabled,
+        audioEnabled: zonePlayer.audioEnabled,
+      };
+    });
+
+    return { players };
+  }
+
+  private broadcastComputerZoneState() {
+    this.broadcast('computer-zone-state', this.toComputerZonePayload());
+  }
 
   // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -316,6 +349,100 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
         { except: client },
       );
     });
+
+    this.onMessage(
+      'media-state',
+      (
+        client,
+        message: {
+          videoEnabled?: boolean;
+          audioEnabled?: boolean;
+        },
+      ) => {
+        this.touchActivity();
+
+        this.broadcast(
+          'media-state',
+          {
+            sessionId: client.sessionId,
+            videoEnabled:
+              typeof message?.videoEnabled === 'boolean' ? message.videoEnabled : undefined,
+            audioEnabled:
+              typeof message?.audioEnabled === 'boolean' ? message.audioEnabled : undefined,
+          },
+          { except: client },
+        );
+      },
+    );
+
+    this.onMessage(
+      'computer-zone-join',
+      (
+        client,
+        message: {
+          peerId?: string;
+          isSharing?: boolean;
+          videoEnabled?: boolean;
+          audioEnabled?: boolean;
+        },
+      ) => {
+        this.touchActivity();
+
+        const peerId = typeof message?.peerId === 'string' ? message.peerId.trim() : '';
+        if (!peerId) {
+          return;
+        }
+
+        const zonePlayer = new ComputerZonePlayer();
+        zonePlayer.sessionId = client.sessionId;
+        zonePlayer.peerId = peerId;
+        zonePlayer.isSharing = Boolean(message?.isSharing);
+        zonePlayer.videoEnabled = Boolean(message?.videoEnabled);
+        zonePlayer.audioEnabled = Boolean(message?.audioEnabled);
+
+        this.state.computerZone.players.set(client.sessionId, zonePlayer);
+        this.broadcastComputerZoneState();
+      },
+    );
+
+    this.onMessage('computer-zone-leave', (client) => {
+      this.touchActivity();
+      this.state.computerZone.players.delete(client.sessionId);
+      this.broadcastComputerZoneState();
+    });
+
+    this.onMessage(
+      'computer-zone-update',
+      (
+        client,
+        message: {
+          isSharing?: boolean;
+          videoEnabled?: boolean;
+          audioEnabled?: boolean;
+        },
+      ) => {
+        this.touchActivity();
+
+        const zonePlayer = this.state.computerZone.players.get(client.sessionId);
+        if (!zonePlayer) {
+          return;
+        }
+
+        if (typeof message?.isSharing === 'boolean') {
+          zonePlayer.isSharing = message.isSharing;
+        }
+
+        if (typeof message?.videoEnabled === 'boolean') {
+          zonePlayer.videoEnabled = message.videoEnabled;
+        }
+
+        if (typeof message?.audioEnabled === 'boolean') {
+          zonePlayer.audioEnabled = message.audioEnabled;
+        }
+
+        this.broadcastComputerZoneState();
+      },
+    );
   }
 
   async onJoin(
@@ -403,12 +530,16 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
       username,
       totalPlayers: this.state.players.size,
     });
+
+    this.broadcastComputerZoneState();
   }
 
   onLeave(client: Client) {
     this.touchActivity();
     const playerLabel = this.getPlayerLabel(client.sessionId);
     this.state.players.delete(client.sessionId);
+    this.state.computerZone.players.delete(client.sessionId);
+    this.broadcastComputerZoneState();
 
     // Use players map size (already updated above) as the authoritative count.
     const remaining = this.state.players.size;

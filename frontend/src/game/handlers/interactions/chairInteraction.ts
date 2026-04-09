@@ -18,7 +18,7 @@ type ChairController = {
   destroy: () => void;
 };
 
-const INTERACTION_DISTANCE = 40;
+const INTERACTION_DISTANCE = 24;
 const LEAVE_OFFSET = 24;
 
 function getObjectProperty(object: any, key: string): string | undefined {
@@ -160,9 +160,10 @@ export function setupChairInteraction(scene: any, map: any, player: any): ChairC
   const prompt = scene.add
     .text(0, 0, '', {
       color: '#111827',
-      fontSize: '26px',
+      fontFamily: 'VT323, monospace',
+      fontSize: '18px',
       backgroundColor: '#f8fafc',
-      padding: { left: 12, right: 12, top: 6, bottom: 6 },
+      padding: { left: 8, right: 8, top: 3, bottom: 3 },
     })
     .setVisible(false)
     .setDepth(5000)

@@ -70,6 +70,7 @@ export class ProximityManager {
     this.peerManager = peerManager;
     this.intervalId = null;
     this.running = false;
+    this.paused = false;
     this.meetingBounds = this.resolveMeetingBounds();
     this.localInMeeting = null;
     this.toastElement = null;
@@ -166,6 +167,17 @@ export class ProximityManager {
   }
 
   tick() {
+    if (this.paused) {
+      const inComputerZone = this.scene?.computerZoneManager?.isInZone?.() === true;
+      if (!inComputerZone) {
+        this.paused = false;
+      }
+    }
+
+    if (this.paused) {
+      return;
+    }
+
     const localSprite = this.scene?.player?.sprite;
     if (!localSprite || !this.peerManager) {
       // Silent return on first few ticks - scene might not be fully initialized
@@ -204,6 +216,9 @@ export class ProximityManager {
     const localInMeeting = this.isInsideMeeting(localX, localY);
     this.updateMeetingStatus(localInMeeting);
 
+    const computerParticipants = this.scene?.computerZoneManager?.getParticipants?.() || {};
+    const localInComputerZone = this.scene?.computerZoneManager?.isInZone?.() === true;
+
     console.log('[ProximityManager:tick] Local position:', { localX, localY, sessionId: localSessionId });
 
     const seenSessions = new Set();
@@ -220,9 +235,10 @@ export class ProximityManager {
       const remoteX = Number(player?.x);
       const remoteY = Number(player?.y);
       const displayName = String(player?.username || player?.name || '').trim();
-      if (displayName) {
-        this.peerManager.videoOverlay?.updateUsername?.(sessionId, displayName);
-      }
+      this.peerManager.videoOverlay?.updateProfile?.(sessionId, {
+        name: displayName,
+        characterKey: String(player?.characterKey || '').trim().toLowerCase(),
+      });
 
       if (!Number.isFinite(remoteX) || !Number.isFinite(remoteY)) {
         console.warn('[ProximityManager:tick] Invalid remote coordinates', { sessionId: sessionId.slice(0, 8), remoteX, remoteY });
@@ -233,6 +249,8 @@ export class ProximityManager {
       const connected = this.peerManager.isConnected(sessionId);
       const remoteInMeeting = this.isInsideMeeting(remoteX, remoteY);
       const bothInMeeting = localInMeeting && remoteInMeeting;
+      const remoteInComputerZone = Boolean(computerParticipants?.[sessionId]);
+      const isolateComputerZone = localInComputerZone || remoteInComputerZone;
 
       console.log('[ProximityManager:tick] Player check:', {
         sessionId: sessionId.slice(0, 8),
@@ -241,7 +259,11 @@ export class ProximityManager {
         username: player?.username,
       });
 
-      if (bothInMeeting || distance < PROXIMITY_RADIUS) {
+      if (isolateComputerZone) {
+        if (connected) {
+          this.peerManager.disconnectFromPeer(sessionId);
+        }
+      } else if (bothInMeeting || distance < PROXIMITY_RADIUS) {
         if (!connected) {
           console.log('[ProximityManager:tick] Connecting to peer within range:', { sessionId: sessionId.slice(0, 8), distance });
           this.peerManager.connectToPeer(sessionId);
@@ -254,7 +276,7 @@ export class ProximityManager {
       const videoElement = this.peerManager.videoOverlay?.getVideoElement?.(sessionId);
       if (videoElement) {
         const volume = smoothFalloff(distance, PROXIMITY_RADIUS);
-        videoElement.volume = connected ? (bothInMeeting ? 1 : volume) : 0;
+        videoElement.volume = connected && !isolateComputerZone ? (bothInMeeting ? 1 : volume) : 0;
       }
     });
 
@@ -276,6 +298,24 @@ export class ProximityManager {
     }
 
     this.running = false;
+  }
+
+  pause(disconnectExisting = true) {
+    this.paused = true;
+
+    if (!disconnectExisting || !this.peerManager) {
+      return;
+    }
+
+    const connectedSessions = this.peerManager.getConnectedSessionIds?.();
+    connectedSessions?.forEach?.((sessionId) => {
+      this.peerManager.disconnectFromPeer?.(sessionId);
+    });
+  }
+
+  resume() {
+    this.paused = false;
+    this.tick();
   }
 
   destroy() {

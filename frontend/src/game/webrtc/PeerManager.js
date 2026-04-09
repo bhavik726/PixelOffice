@@ -1,6 +1,8 @@
 import Peer from 'peerjs';
 import { ICE_SERVERS, PEER_CONFIG } from './webrtcConfig';
 
+const MAX_CONNECT_RETRIES = 6;
+
 function sanitizePeerId(id) {
   return String(id || '').replace(/[^0-9a-z]/gi, 'G');
 }
@@ -26,6 +28,29 @@ export class PeerManager {
     return this.peerIdToSessionId.get(peerId) || peerId;
   }
 
+  getOutboundStream() {
+    if (this.localStream instanceof MediaStream) {
+      return this.localStream;
+    }
+
+    return new MediaStream();
+  }
+
+  getLocalMediaState() {
+    const stream = this.localStream;
+    const videoTracks = stream?.getVideoTracks?.() || [];
+    const audioTracks = stream?.getAudioTracks?.() || [];
+
+    const videoEnabled = videoTracks.length > 0
+      ? videoTracks.some((track) => track.enabled !== false)
+      : false;
+    const audioEnabled = audioTracks.length > 0
+      ? audioTracks.some((track) => track.enabled !== false)
+      : false;
+
+    return { videoEnabled, audioEnabled };
+  }
+
   getDisplayKey(sessionId, peerId) {
     if (sessionId && this.sessionPeerIds.has(sessionId)) {
       return sessionId;
@@ -37,7 +62,7 @@ export class PeerManager {
   upsertRemoteStream(peerId, stream, preferredSessionId = null) {
     const mappedSessionId = preferredSessionId || this.getSessionIdForPeer(peerId);
     const streamKey = this.getDisplayKey(mappedSessionId, peerId);
-    this.videoOverlay?.addStream?.(streamKey, stream, this.getUsername(mappedSessionId));
+    this.videoOverlay?.addStream?.(streamKey, stream, this.getProfile(mappedSessionId));
   }
 
   removeRemoteStream(peerId) {
@@ -163,12 +188,20 @@ export class PeerManager {
 
     console.log('[PeerManager:handlePeerIdMessage] Maps updated, attempting key migration');
     this.videoOverlay?.replaceStreamKey?.(sanitizedPeerId, sessionId);
-    this.videoOverlay?.updateUsername?.(sessionId, this.getUsername(sessionId));
+    this.videoOverlay?.updateProfile?.(sessionId, this.getProfile(sessionId));
   }
 
   getUsername(sessionId) {
     const player = this.room?.state?.players?.get?.(sessionId);
     return player?.username || player?.name || '';
+  }
+
+  getProfile(sessionId) {
+    const player = this.room?.state?.players?.get?.(sessionId);
+    return {
+      name: player?.username || player?.name || '',
+      characterKey: player?.characterKey || '',
+    };
   }
 
   resolvePeerId(sessionId) {
@@ -212,7 +245,14 @@ export class PeerManager {
       return null;
     }
 
-    if (!this.shouldInitiateCall(sessionId)) {
+    if (!this.shouldInitiateCall(sessionId) && attempt === 0) {
+      // Prefer deterministic single-side dialing, but keep a fallback attempt in case
+      // peer-id mapping arrives late and the initiator side misses its first call window.
+      window.setTimeout(() => {
+        if (!this.isConnected(sessionId) && !this.destroyed) {
+          this.connectToPeer(sessionId, 1);
+        }
+      }, 350);
       return this.getActiveConnection(sessionId);
     }
 
@@ -223,16 +263,17 @@ export class PeerManager {
       return this.getActiveConnection(sessionId);
     }
 
-    if (!this.localStream) {
-      console.error('[PeerManager:connectToPeer] No local stream available!', { sessionId, peerId });
-      return null;
-    }
+    const outboundStream = this.getOutboundStream();
 
     console.log('[PeerManager:connectToPeer] Stream available, proceeding with call', { sessionId, peerId });
 
-    const call = this.peer.call(peerId, this.localStream, {
+    const localSessionId = this.room?.sessionId || '';
+    const localMediaState = this.getLocalMediaState();
+    const call = this.peer.call(peerId, outboundStream, {
       metadata: {
-        sessionId,
+        fromSessionId: localSessionId,
+        videoEnabled: localMediaState.videoEnabled,
+        audioEnabled: localMediaState.audioEnabled,
       },
     });
 
@@ -254,11 +295,11 @@ export class PeerManager {
       this.outgoingCalls.delete(peerId);
 
       const retryCount = this.retryCounts.get(peerId) || 0;
-      if (!hadStream && retryCount < 1 && !this.destroyed) {
+      if (!hadStream && retryCount < MAX_CONNECT_RETRIES && !this.destroyed) {
         this.retryCounts.set(peerId, retryCount + 1);
         window.setTimeout(() => {
           this.connectToPeer(sessionId, retryCount + 1);
-        }, 250);
+        }, 250 + retryCount * 150);
         return;
       }
 
@@ -271,11 +312,11 @@ export class PeerManager {
       this.removeRemoteStream(peerId);
 
       const retryCount = this.retryCounts.get(peerId) || 0;
-      if (retryCount < 1 && !this.destroyed) {
+      if (retryCount < MAX_CONNECT_RETRIES && !this.destroyed) {
         this.retryCounts.set(peerId, retryCount + 1);
         window.setTimeout(() => {
           this.connectToPeer(sessionId, retryCount + 1);
-        }, 250);
+        }, 250 + retryCount * 150);
       }
     });
 
@@ -304,17 +345,25 @@ export class PeerManager {
       this.outgoingCalls.delete(peerId);
     }
 
-    if (!this.localStream) {
-      call.close();
-      return;
-    }
+    const answerStream = this.getOutboundStream();
 
-    const sessionId = this.peerIdToSessionId.get(peerId) || call.metadata?.sessionId || peerId;
+    const sessionId =
+      this.peerIdToSessionId.get(peerId) ||
+      call.metadata?.fromSessionId ||
+      call.metadata?.sessionId ||
+      peerId;
     const record = { call, stream: null, sessionId, peerId };
     this.incomingCalls.set(peerId, record);
 
+    if (typeof call.metadata?.videoEnabled === 'boolean' || typeof call.metadata?.audioEnabled === 'boolean') {
+      this.videoOverlay?.updateRemoteMediaState?.(sessionId, {
+        videoEnabled: call.metadata?.videoEnabled,
+        audioEnabled: call.metadata?.audioEnabled,
+      });
+    }
+
     try {
-      call.answer(this.localStream);
+      call.answer(answerStream);
     } catch (error) {
       console.warn('Failed to answer incoming PeerJS call', { peerId, error });
       this.incomingCalls.delete(peerId);

@@ -55,6 +55,12 @@ export default class MainScene extends Phaser.Scene {
     this.chatInputActive = false;
     this.isLeavingRoom = false;
     this.leaveRoomButton = null;
+    this.computerZoneManager = null;
+    this.computerInteractionRects = [];
+    this.nearestComputer = null;
+    this.computerPromptText = null;
+    this.interactKey = null;
+    this.computerInteractRange = 18;
   }
   
   /**
@@ -194,6 +200,7 @@ export default class MainScene extends Phaser.Scene {
       this.player,
       this.wboOverlay,
     );
+    this.initializeComputerInteractions();
     this.events.once('shutdown', this.shutdown, this);
     this.events.once('destroy', this.shutdown, this);
 
@@ -324,6 +331,7 @@ export default class MainScene extends Phaser.Scene {
     if (this.player) {
       this.chairInteraction?.update();
       this.whiteboardInteraction?.update();
+      this.updateComputerInteractionState();
       this.player.update();
 
       if (this.localNameText && this.player.sprite) {
@@ -363,8 +371,130 @@ export default class MainScene extends Phaser.Scene {
     this.leaveRoomButton?.remove?.();
     this.leaveRoomButton = null;
 
+    this.interactKey?.off?.('down');
+    this.interactKey = null;
+
+    this.computerPromptText?.destroy?.();
+    this.computerPromptText = null;
+    this.computerInteractionRects = [];
+    this.nearestComputer = null;
+
     this.chatBubbles.forEach((bubble) => bubble.text?.destroy?.());
     this.chatBubbles.clear();
+  }
+
+  initializeComputerInteractions() {
+    const interactionLayer = this.tilemap?.getObjectLayer?.('interactions');
+    const objects = Array.isArray(interactionLayer?.objects) ? interactionLayer.objects : [];
+
+    this.computerInteractionRects = objects
+      .filter((obj) => {
+        const type = String(obj?.type || obj?.name || '').trim().toLowerCase();
+        const propType = Array.isArray(obj?.properties)
+          ? String(
+              obj.properties.find((prop) => String(prop?.name || '').toLowerCase() === 'type')
+                ?.value || '',
+            )
+              .trim()
+              .toLowerCase()
+          : '';
+        return type === 'computer' || type === 'computers' || propType === 'computer';
+      })
+      .map((obj, index) => {
+        const x = Number(obj?.x) || 0;
+        const y = Number(obj?.y) || 0;
+        const width = Math.max(1, Number(obj?.width) || 0);
+        const height = Math.max(1, Number(obj?.height) || 0);
+
+        return {
+          id: String(obj?.id || obj?.name || `computer-${index + 1}`),
+          rect: new Phaser.Geom.Rectangle(x, y, width, height),
+        };
+      });
+
+    this.computerPromptText = this.add.text(0, 0, 'Press C to use computer', {
+      color: '#111827',
+      fontFamily: 'VT323, monospace',
+      fontSize: '18px',
+      backgroundColor: '#f8fafc',
+      padding: { left: 8, right: 8, top: 3, bottom: 3 },
+    });
+    this.computerPromptText.setOrigin(0.5, 1);
+    this.computerPromptText.setDepth(2000);
+    this.computerPromptText.setVisible(false);
+
+    this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+    this.interactKey.on('down', () => {
+      if (!this.computerZoneManager) {
+        return;
+      }
+
+      if (this.computerZoneManager.isInZone()) {
+        this.computerZoneManager.exitZone();
+        return;
+      }
+
+      if (this.nearestComputer) {
+        void this.computerZoneManager.enterZone(this.nearestComputer.id);
+      }
+    });
+  }
+
+  findNearestComputer() {
+    const sprite = this.player?.sprite;
+    if (!sprite || !Array.isArray(this.computerInteractionRects) || this.computerInteractionRects.length === 0) {
+      return null;
+    }
+
+    const px = Number(sprite.x);
+    const py = Number(sprite.y);
+    if (!Number.isFinite(px) || !Number.isFinite(py)) {
+      return null;
+    }
+
+    let best = null;
+
+    this.computerInteractionRects.forEach((entry) => {
+      const expanded = Phaser.Geom.Rectangle.Clone(entry.rect);
+      expanded.x -= this.computerInteractRange;
+      expanded.y -= this.computerInteractRange;
+      expanded.width += this.computerInteractRange * 2;
+      expanded.height += this.computerInteractRange * 2;
+
+      if (!expanded.contains(px, py)) {
+        return;
+      }
+
+      const centerX = entry.rect.centerX;
+      const centerY = entry.rect.centerY;
+      const dist = Phaser.Math.Distance.Between(px, py, centerX, centerY);
+
+      if (!best || dist < best.distance) {
+        best = {
+          ...entry,
+          distance: dist,
+        };
+      }
+    });
+
+    return best;
+  }
+
+  updateComputerInteractionState() {
+    const inZone = this.computerZoneManager?.isInZone?.() || false;
+    this.nearestComputer = this.findNearestComputer();
+
+    const promptVisible = Boolean(this.nearestComputer) && !inZone;
+    if (!this.computerPromptText) {
+      return;
+    }
+
+    this.computerPromptText.setVisible(promptVisible);
+
+    if (promptVisible) {
+      this.computerPromptText.x = this.nearestComputer.rect.centerX;
+      this.computerPromptText.y = this.nearestComputer.rect.y - 20;
+    }
   }
   
   /**
