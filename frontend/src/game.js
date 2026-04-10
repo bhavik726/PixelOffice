@@ -99,8 +99,6 @@ export async function createGame() {
       return;
     }
 
-    console.log("Attempting to join room:", colyseusRoomId);
-    
     // Join the Colyseus room
     let room;
     try {
@@ -109,10 +107,8 @@ export async function createGame() {
         displayName,
         characterKey,
       });
-      console.log("✓ Connected to Colyseus room:", colyseusRoomId);
     } catch (roomError) {
       console.error("Failed to join room:", roomError);
-      console.log("Room may have been closed. Redirecting to lobby...");
       window.localStorage.removeItem(COLYSEUS_ROOM_ID_STORAGE_KEY);
       window.location.href = "/lobby.html";
       return;
@@ -136,7 +132,6 @@ export async function createGame() {
     let computerZoneManager = null;
 
     const cleanupWebRTC = () => {
-      console.log('[game.js] Cleaning up WebRTC');
       computerZoneManager?.destroy?.();
       proximityManager?.destroy?.();
       peerManager?.destroy?.();
@@ -149,14 +144,10 @@ export async function createGame() {
       videoOverlay = null;
     };
 
-    console.log('[game.js] Initializing MediaControls');
     const mediaReady = await mediaControls.init();
-    console.log('[game.js] MediaControls ready:', mediaReady);
-    console.log('[game.js] Local stream available:', !!mediaControls.getStream());
 
     if (!mediaReady || !mediaControls.getStream()) {
       console.error('[game.js] CRITICAL: WebRTC media stream not available - proximity voice/video disabled');
-      console.log('[game.js] User may have denied camera/microphone permissions');
       videoOverlay = new VideoOverlay(mediaControls, {
         localProfile: {
           name: displayName || 'You',
@@ -192,17 +183,11 @@ export async function createGame() {
       });
     });
 
-    console.log('[game.js] Creating PeerManager with stream:', !!mediaControls.getStream());
     peerManager = new PeerManager(room, mediaControls.getStream(), videoOverlay);
-    console.log('[game.js] Initializing PeerManager');
     await peerManager.init();
-    console.log('[game.js] PeerManager initialized');
 
-    console.log('[game.js] Creating ProximityManager');
     proximityManager = new ProximityManager(scene, peerManager);
-    console.log('[game.js] Starting ProximityManager');
     proximityManager.start();
-    console.log('[game.js] ProximityManager started');
 
     computerZoneManager = new ComputerZoneManager({
       room,
@@ -234,15 +219,7 @@ export async function createGame() {
       
       // Update debug overlay with every state change
       scene.updateDebugOverlay();
-      
-      console.log("State updated", {
-        roomId: room.roomId,
-        you: room.sessionId,
-        playerCount: scene.playersMap.size,
-      });
     });
-    
-    console.log("✓ Colyseus setup complete");
     
   } catch (error) {
     console.error("Failed to connect to Colyseus:", error);
@@ -279,7 +256,6 @@ function bindPlayerListeners(scene) {
       console.warn("Room not available in onPlayerAdd");
       return;
     }
-    console.log("[onAdd] sessionId:", sessionId, "mine:", scene.room.sessionId);
     scene.updatePlayerPosition(
       sessionId,
       statePlayer.x,
@@ -310,9 +286,7 @@ function bindPlayerListeners(scene) {
   }
 
   // Catch players that already exist
-  console.log("Checking existing players...");
   statePlayers.forEach((statePlayer, sessionId) => {
-    console.log("Existing player:", sessionId);
     scene.updatePlayerPosition(
       sessionId, 
       statePlayer.x, 
@@ -327,7 +301,5 @@ function bindPlayerListeners(scene) {
     );
     scene.bindPlayerChange(statePlayer, sessionId);
   });
-
-  console.log("Player listeners bound successfully");
   scene.updateDebugOverlay();
 }

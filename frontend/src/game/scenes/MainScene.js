@@ -123,11 +123,8 @@ export default class MainScene extends Phaser.Scene {
       tileWidth: 32,
       tileHeight: 32,
     });
-    console.log('Available layers in map:', this.tilemap.layers.map((l) => l.name));
-    console.log('Available object layers:', this.tilemap.objects?.map((o) => o.name));
 
     // Bind tilesets using exact names from Tiled JSON
-    console.log('Tilesets in map:', this.tilemap.tilesets);
     
     const tilesets = (this.tilemap.tilesets || [])
       .map((tilesetData) => {
@@ -140,8 +137,6 @@ export default class MainScene extends Phaser.Scene {
           console.warn(
             `Failed to bind tileset "${tilesetData.name}" (firstgid: ${tilesetData.firstgid})`,
           );
-        } else {
-          console.log(`Tileset bound: "${tilesetData.name}" (firstgid: ${tilesetData.firstgid})`);
         }
 
         return boundTileset;
@@ -154,7 +149,6 @@ export default class MainScene extends Phaser.Scene {
     this.tilemap.layers.forEach((layerData) => {
       // Skip object layers (they don't have tile data)
       if (!layerData.data) {
-        console.log(`Skipping object layer: "${layerData.name}"`);
         return;
       }
 
@@ -164,8 +158,6 @@ export default class MainScene extends Phaser.Scene {
         console.error(`Layer failed: "${layerData.name}"`);
         return;
       }
-
-      console.log(`Layer created: "${layerData.name}"`);
       this.layers.push(layer);
     });
 
@@ -215,13 +207,9 @@ export default class MainScene extends Phaser.Scene {
     this.initializeComputerInteractions();
     this.events.once('shutdown', this.shutdown, this);
     this.events.once('destroy', this.shutdown, this);
-
-    console.log(`Loaded ${this.layers.length} layers, ${this.collidableLayers.length} with collision`);
     
     // Setup UI
     this.setupUI();
-    
-    console.log('Scene created successfully!');
   }
 
   resolveWorldTheme() {

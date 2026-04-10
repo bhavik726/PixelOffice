@@ -57,11 +57,7 @@ export default class WBOOverlay {
     iframe.setAttribute('title', 'WBO Whiteboard');
     iframe.style.background = '#fff';
     iframe.style.pointerEvents = 'auto';
-    iframe.onload = () => {
-      if (iframe.src && !iframe.src.startsWith('about:blank')) {
-        console.log('WBO loaded');
-      }
-    };
+    iframe.onload = null;
     iframe.onerror = () => console.error('WBO failed to load');
 
     container.append(header, iframe);
@@ -72,7 +68,6 @@ export default class WBOOverlay {
     this.boundCloseHandler = (event) => {
       event.preventDefault();
       event.stopPropagation();
-      console.log('Closing WBO');
       this.close();
     };
     closeButton.addEventListener('click', this.boundCloseHandler);
@@ -146,7 +141,6 @@ export default class WBOOverlay {
 
     // Load WBO board
     const wboUrl = `http://localhost:8080/boards/${encodeURIComponent(this.boardId)}`;
-    console.log('Loading WBO board:', wboUrl);
     this.iframe.src = 'about:blank';
     this.iframe.src = wboUrl;
   }

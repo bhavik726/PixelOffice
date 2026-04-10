@@ -81,10 +81,7 @@ export class PeerManager {
       throw new Error('Room session ID is not available for PeerJS initialization');
     }
 
-    console.log('[PeerManager] Initializing with sessionId:', sessionId);
-
     this.localPeerId = sanitizePeerId(sessionId);
-    console.log('[PeerManager] Initial peerId:', this.localPeerId);
 
     // Wait for the Peer to actually be ready before proceeding
     const peerReadyPromise = new Promise((resolve, reject) => {
@@ -94,10 +91,8 @@ export class PeerManager {
       });
 
       const onOpen = (peerId) => {
-        console.log('[PeerManager:open] Peer opened with ID:', peerId);
         cleanup();
         this.localPeerId = sanitizePeerId(peerId);
-        console.log('[PeerManager:open] Final peerId:', this.localPeerId);
         this.broadcastLocalPeerId();
         resolve(peer);
       };
@@ -125,7 +120,6 @@ export class PeerManager {
 
       // Listen for calls globally
       peer.on('call', (call) => {
-        console.log('[PeerManager:call] Incoming call from:', call.peer);
         this.handleIncomingCall(call);
       });
 
@@ -140,12 +134,9 @@ export class PeerManager {
       console.error('[PeerManager] Failed to initialize peer:', error);
       throw error;
     }
-
-    console.log('[PeerManager] Registering peer-id message handler with room');
     this.room?.onMessage?.('peer-id', this.messageHandler);
 
     this.initialized = true;
-    console.log('[PeerManager] Initialization complete');
 
     return this.peer;
   }
@@ -160,9 +151,7 @@ export class PeerManager {
     }
 
     try {
-      console.log('[PeerManager:broadcast] Sending peer-id message:', this.localPeerId);
       this.room.send('peer-id', { peerId: this.localPeerId });
-      console.log('[PeerManager:broadcast] Successfully sent peer-id message');
     } catch (error) {
       console.error('[PeerManager:broadcast] Failed to broadcast local peer id', error);
     }
@@ -180,13 +169,9 @@ export class PeerManager {
       return;
     }
 
-    console.log('[PeerManager:handlePeerIdMessage] Received mapping:', { sessionId, peerId });
-
     const sanitizedPeerId = sanitizePeerId(peerId);
     this.sessionPeerIds.set(sessionId, sanitizedPeerId);
     this.peerIdToSessionId.set(sanitizedPeerId, sessionId);
-
-    console.log('[PeerManager:handlePeerIdMessage] Maps updated, attempting key migration');
     this.videoOverlay?.replaceStreamKey?.(sanitizedPeerId, sessionId);
     this.videoOverlay?.updateProfile?.(sessionId, this.getProfile(sessionId));
   }
@@ -256,16 +241,11 @@ export class PeerManager {
       return this.getActiveConnection(sessionId);
     }
 
-    console.log('[PeerManager:connectToPeer] Attempting connection', { sessionId, peerId, attempt });
-
     if (this.outgoingCalls.has(peerId) || this.incomingCalls.has(peerId)) {
-      console.log('[PeerManager:connectToPeer] Already connected to', peerId);
       return this.getActiveConnection(sessionId);
     }
 
     const outboundStream = this.getOutboundStream();
-
-    console.log('[PeerManager:connectToPeer] Stream available, proceeding with call', { sessionId, peerId });
 
     const localSessionId = this.room?.sessionId || '';
     const localMediaState = this.getLocalMediaState();

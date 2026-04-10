@@ -185,9 +185,7 @@ export class ProximityManager {
         this.tickCount = 0;
       }
       this.tickCount++;
-      if (this.tickCount <= 3) {
-        console.log('[ProximityManager:tick] Waiting for scene initialization...');
-      } else if (this.tickCount === 4) {
+      if (this.tickCount === 4) {
         console.warn('[ProximityManager:tick] Missing localSprite or peerManager after multiple ticks', {
           hasSprite: !!localSprite,
           hasPeerManager: !!this.peerManager,
@@ -219,13 +217,9 @@ export class ProximityManager {
     const computerParticipants = this.scene?.computerZoneManager?.getParticipants?.() || {};
     const localInComputerZone = this.scene?.computerZoneManager?.isInZone?.() === true;
 
-    console.log('[ProximityManager:tick] Local position:', { localX, localY, sessionId: localSessionId });
-
     const seenSessions = new Set();
-    let playerCount = 0;
 
     this.scene.playersMap.forEach((player, sessionId) => {
-      playerCount++;
       if (sessionId === localSessionId) {
         return;
       }
@@ -252,24 +246,15 @@ export class ProximityManager {
       const remoteInComputerZone = Boolean(computerParticipants?.[sessionId]);
       const isolateComputerZone = localInComputerZone || remoteInComputerZone;
 
-      console.log('[ProximityManager:tick] Player check:', {
-        sessionId: sessionId.slice(0, 8),
-        distance: Math.round(distance),
-        connected,
-        username: player?.username,
-      });
-
       if (isolateComputerZone) {
         if (connected) {
           this.peerManager.disconnectFromPeer(sessionId);
         }
       } else if (bothInMeeting || distance < PROXIMITY_RADIUS) {
         if (!connected) {
-          console.log('[ProximityManager:tick] Connecting to peer within range:', { sessionId: sessionId.slice(0, 8), distance });
           this.peerManager.connectToPeer(sessionId);
         }
       } else if (connected) {
-        console.log('[ProximityManager:tick] Disconnecting from peer out of range:', { sessionId: sessionId.slice(0, 8), distance });
         this.peerManager.disconnectFromPeer(sessionId);
       }
 
@@ -280,12 +265,9 @@ export class ProximityManager {
       }
     });
 
-    console.log('[ProximityManager:tick] Total players in map:', playerCount);
-
     const connectedSessions = this.peerManager.getConnectedSessionIds?.() || new Set();
     connectedSessions.forEach((sessionId) => {
       if (sessionId && sessionId !== localSessionId && !seenSessions.has(sessionId)) {
-        console.log('[ProximityManager:tick] Stale peer cleanup, disconnecting:', sessionId.slice(0, 8));
         this.peerManager.disconnectFromPeer(sessionId);
       }
     });
