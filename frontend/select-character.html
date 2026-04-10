@@ -4,19 +4,56 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Select Character · Pixel Office</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/png" href="/logo.png" />
     <style>
+      @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap");
+
       :root {
-        color-scheme: dark;
-        --bg: #070b16;
-        --panel: #141b2f;
-        --panel-2: #0f1628;
-        --border: rgba(148, 163, 184, 0.16);
-        --text: #f8fafc;
-        --muted: #a3b2d0;
-        --accent: #4eead7;
-        --accent-2: #7cf1a6;
-        --shadow: rgba(0, 0, 0, 0.5);
+        --sky-top: #7ebfe7;
+        --sky-bottom: #bfdff2;
+        --backdrop-image: url("/assets/background/backdrop_day.png");
+        --cloud-image: url("/assets/background/cloud_day.png");
+        --cloud: #f3f8ff;
+        --panel: rgba(26, 38, 58, 0.95);
+        --panel-soft: rgba(18, 28, 45, 0.88);
+        --panel-border: #324a6f;
+        --panel-highlight: #4e6f9d;
+        --text: #f4f8ff;
+        --muted: #a4b5d1;
+        --input-bg: #1a243a;
+        --input-border: #2b3f63;
+        --accent: #29c06f;
+        --accent-strong: #1ca75f;
+        --danger: #ff7d7d;
+        --city-a: #212f48;
+        --city-b: #2a3b58;
+        --city-c: #16233a;
+        --window: #c7d6ea;
+        --window-glow: #ffe28a;
+        --star: #fff8cc;
+      }
+
+      body[data-mode="night"] {
+        --sky-top: #0f1731;
+        --sky-bottom: #25345b;
+        --backdrop-image: url("/assets/background/backdrop_night.png");
+        --cloud-image: url("/assets/background/cloud_night.png");
+        --cloud: #aab4d1;
+        --panel: rgba(16, 22, 39, 0.93);
+        --panel-border: #304771;
+        --panel-highlight: #4f6c9e;
+        --text: #f0f6ff;
+        --muted: #9aadcc;
+        --input-bg: #141f35;
+        --input-border: #2d4268;
+        --accent: #34c87a;
+        --accent-strong: #1cab62;
+        --city-a: #111b31;
+        --city-b: #19253f;
+        --city-c: #0d1528;
+        --window: #455676;
+        --window-glow: #ffd76c;
+        --star: #fff2a6;
       }
 
       * {
@@ -27,105 +64,260 @@
         margin: 0;
         min-height: 100vh;
         color: var(--text);
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background:
-          radial-gradient(circle at top, rgba(78, 234, 215, 0.16), transparent 28%),
-          radial-gradient(circle at 80% 20%, rgba(124, 241, 166, 0.12), transparent 24%),
-          linear-gradient(180deg, #090d1a 0%, #070b16 42%, #050812 100%);
+        font-family: "VT323", monospace;
+        letter-spacing: 0.02em;
+        position: relative;
         overflow: hidden;
       }
 
-      .ambient {
+      .scene-bg {
         position: fixed;
         inset: 0;
+        z-index: 0;
+        background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom));
+        transition: background 260ms ease;
+      }
+
+      .scene-bg::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: var(--backdrop-image);
+        background-repeat: repeat-x;
+        background-position: center bottom;
+        background-size: auto 100%;
+        image-rendering: pixelated;
+        opacity: 0.72;
+        transition: opacity 260ms ease;
+      }
+
+      body[data-mode="night"] .scene-bg::before {
+        opacity: 0.9;
+      }
+
+      .stars {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        transition: opacity 260ms ease;
+      }
+
+      body[data-mode="night"] .stars {
+        opacity: 1;
+      }
+
+      .star {
+        position: absolute;
+        width: 3px;
+        height: 3px;
+        background: var(--star);
+        animation: twinkle 1.8s steps(2, end) infinite;
+      }
+
+      .star:nth-child(odd) {
+        animation-delay: 0.8s;
+      }
+
+      .star:nth-child(3n) {
+        animation-delay: 1.3s;
+      }
+
+      .clouds {
+        position: absolute;
+        inset: 0;
         pointer-events: none;
-        background-image:
-          linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-        background-size: 48px 48px;
-        mask-image: radial-gradient(circle at center, black 30%, transparent 86%);
+      }
+
+      .cloud {
+        position: absolute;
+        width: 900px;
+        height: 460px;
+        background: var(--cloud-image) center / contain no-repeat;
+        image-rendering: pixelated;
+        opacity: 0.92;
+        transition: opacity 260ms ease;
+      }
+
+      .c1 {
+        top: 40px;
+        left: -120px;
+        animation: drift 44s linear infinite;
+      }
+
+      .c2 {
+        top: 100px;
+        left: -220px;
+        transform: scale(1.1);
+        animation: drift 58s linear infinite;
+        animation-delay: -16s;
+      }
+
+      .c3 {
+        top: 24px;
+        left: -300px;
+        transform: scale(1);
+        animation: drift 66s linear infinite;
+        animation-delay: -9s;
+      }
+
+      .c4 {
+        top: 104px;
+        left: -340px;
+        transform: scale(0.95);
+        animation: drift 62s linear infinite;
+        animation-delay: -20s;
+      }
+
+      .c5 {
+        top: 186px;
+        left: -280px;
+        transform: scale(1.15);
+        animation: drift 70s linear infinite;
+        animation-delay: -28s;
+      }
+
+      .c6 {
+        top: 58px;
+        left: -460px;
+        transform: scale(0.88);
+        animation: drift 74s linear infinite;
+        animation-delay: -36s;
+      }
+
+      .city {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 28vh;
+        min-height: 130px;
+        pointer-events: none;
+      }
+
+      .city-row {
+        position: absolute;
+        inset: auto 0 0 0;
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+        padding: 0 12px;
+      }
+
+      .city-row.back {
+        height: 68%;
+      }
+
+      .city-row.front {
+        height: 82%;
+      }
+
+      .building {
+        flex: 1;
+        min-width: 34px;
+        height: var(--h);
+        background: var(--city-a);
+        position: relative;
+      }
+
+      .city-row.back .building {
+        background: var(--city-b);
+      }
+
+      .city-row.front .building {
+        background: var(--city-c);
+      }
+
+      .building::before {
+        content: "";
+        position: absolute;
+        inset: 8px 6px 8px 6px;
+        background-image: repeating-linear-gradient(
+            to right,
+            var(--window) 0 6px,
+            transparent 6px 12px
+          ),
+          repeating-linear-gradient(to bottom, transparent 0 7px, rgba(0, 0, 0, 0.18) 7px 10px);
+        opacity: 0.34;
+      }
+
+      body[data-mode="night"] .building::before {
+        background-image: repeating-linear-gradient(
+            to right,
+            var(--window-glow) 0 6px,
+            transparent 6px 12px
+          ),
+          repeating-linear-gradient(to bottom, transparent 0 7px, rgba(0, 0, 0, 0.25) 7px 10px);
+        opacity: 0.76;
+        animation: flicker 2.6s steps(3, end) infinite;
+      }
+
+      .ground-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 8px;
+        background: linear-gradient(90deg, #2aa95f, #5be07f, #2aa95f);
       }
 
       .shell {
         position: relative;
+        z-index: 1;
         min-height: 100vh;
         display: grid;
         place-items: center;
-        padding: 28px 16px;
+        padding: 24px 14px;
       }
 
       .card {
-        width: min(980px, 100%);
-        min-height: 640px;
+        width: min(920px, 96vw);
         display: grid;
-        grid-template-columns: 1fr 1.15fr;
+        grid-template-columns: 1fr 1fr;
         gap: 0;
-        border-radius: 28px;
+        border-radius: 12px;
         overflow: hidden;
-        border: 1px solid var(--border);
-        background: linear-gradient(180deg, rgba(20, 27, 47, 0.95), rgba(12, 18, 34, 0.95));
-        box-shadow: 0 30px 90px var(--shadow);
-        backdrop-filter: blur(18px);
+        border: 3px solid var(--panel-border);
+        box-shadow:
+          0 0 0 2px rgba(255, 255, 255, 0.08) inset,
+          0 24px 42px rgba(6, 10, 21, 0.35);
+        background: var(--panel);
       }
 
       .preview-pane {
         position: relative;
-        padding: 36px 28px;
+        padding: 28px 24px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        gap: 22px;
-        border-right: 1px solid rgba(255,255,255,0.06);
-        background:
-          radial-gradient(circle at top left, rgba(78, 234, 215, 0.12), transparent 42%),
-          linear-gradient(180deg, rgba(10, 16, 31, 0.9), rgba(11, 18, 36, 0.95));
+        justify-content: flex-start;
+        gap: 14px;
+        border-right: 2px solid var(--input-border);
+        background: linear-gradient(180deg, rgba(20, 31, 49, 0.94), rgba(16, 24, 40, 0.95));
       }
 
       .preview-heading {
         display: flex;
         align-items: center;
-        gap: 14px;
-      }
-
-      .badge {
-        width: 54px;
-        height: 54px;
-        border-radius: 18px;
-        display: grid;
-        place-items: center;
-        background: linear-gradient(135deg, rgba(78, 234, 215, 0.28), rgba(124, 241, 166, 0.22));
-        border: 1px solid rgba(124, 241, 166, 0.28);
-        color: var(--text);
-        font-weight: 700;
-        letter-spacing: 0.08em;
+        gap: 0;
       }
 
       .preview-heading h1 {
         margin: 0;
-        font-size: 28px;
-        font-weight: 750;
-        letter-spacing: -0.03em;
-      }
-
-      .preview-heading p {
-        margin: 6px 0 0;
-        color: var(--muted);
-        font-size: 14px;
+        font-size: clamp(14px, 2vw, 18px);
+        font-family: "Press Start 2P", cursive;
+        line-height: 1.4;
       }
 
       .frame {
         position: relative;
         display: grid;
         place-items: center;
-        min-height: 340px;
-        border-radius: 24px;
-        border: 1px solid rgba(255,255,255,0.08);
-        background:
-          radial-gradient(circle at top, rgba(255,255,255,0.05), transparent 42%),
-          linear-gradient(180deg, rgba(15, 22, 40, 0.98), rgba(10, 14, 26, 0.98));
+        min-height: 316px;
+        border-radius: 10px;
+        border: 2px solid var(--input-border);
+        background: linear-gradient(180deg, rgba(11, 18, 33, 0.98), rgba(13, 21, 36, 0.98));
         box-shadow:
-          inset 0 1px 0 rgba(255,255,255,0.05),
-          0 18px 30px rgba(0, 0, 0, 0.25);
+          0 0 0 2px rgba(255, 255, 255, 0.03) inset,
+          0 14px 24px rgba(0, 0, 0, 0.28);
         overflow: hidden;
       }
 
@@ -142,7 +334,7 @@
         inset: auto 20px 20px 20px;
         height: 18px;
         border-radius: 999px;
-        background: linear-gradient(90deg, transparent, rgba(78, 234, 215, 0.18), transparent);
+        background: linear-gradient(90deg, transparent, rgba(41, 192, 111, 0.26), transparent);
         border: 0;
         filter: blur(8px);
       }
@@ -159,7 +351,7 @@
         position: absolute;
         inset: 40px 48px 12px;
         border-radius: 999px;
-        background: radial-gradient(circle, rgba(78, 234, 215, 0.34), transparent 68%);
+        background: radial-gradient(circle, rgba(41, 192, 111, 0.3), transparent 68%);
         filter: blur(14px);
       }
 
@@ -185,51 +377,38 @@
 
       .arrow {
         pointer-events: auto;
-        width: 44px;
-        height: 44px;
-        border-radius: 999px;
-        border: 1px solid rgba(148, 163, 184, 0.22);
-        background: rgba(15, 23, 42, 0.72);
+        width: 42px;
+        height: 42px;
+        border-radius: 50px;
+        border: 2px solid var(--panel-highlight);
+        background: #243752;
         color: var(--text);
         cursor: pointer;
         display: grid;
         place-items: center;
-        transition: transform 0.15s ease, border-color 0.15s ease;
+        font-family: "Press Start 2P", cursive;
+        font-size: 14px;
+        transition: transform 90ms steps(2, end), filter 130ms ease;
       }
 
       .arrow:hover {
-        transform: scale(1.04);
-        border-color: rgba(78, 234, 215, 0.52);
-      }
-
-      .name-pill {
-        align-self: flex-start;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 999px;
-        background: rgba(15, 23, 42, 0.72);
-        border: 1px solid rgba(148, 163, 184, 0.14);
-        color: var(--muted);
-        font-size: 13px;
+        filter: brightness(1.08);
       }
 
       .details-pane {
-        padding: 34px 30px;
+        padding: 28px 24px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        gap: 18px;
-        background:
-          radial-gradient(circle at 100% 0%, rgba(78, 234, 215, 0.08), transparent 30%),
-          linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(11, 16, 30, 0.98));
+        justify-content: flex-start;
+        gap: 14px;
+        background: linear-gradient(180deg, rgba(16, 24, 40, 0.95), rgba(14, 21, 35, 0.98));
       }
 
       .details-pane h2 {
         margin: 0;
-        font-size: 18px;
-        font-weight: 700;
+        font-size: 14px;
+        font-family: "Press Start 2P", cursive;
+        line-height: 1.5;
       }
 
       .field {
@@ -240,25 +419,27 @@
 
       label {
         color: var(--muted);
-        font-size: 13px;
+        font-size: 20px;
+        line-height: 1;
       }
 
       input {
         width: 100%;
-        height: 56px;
-        border-radius: 14px;
-        border: 1px solid rgba(78, 234, 215, 0.35);
-        background: rgba(8, 12, 24, 0.82);
+        height: 48px;
+        border-radius: 8px;
+        border: 2px solid var(--input-border);
+        background: var(--input-bg);
         color: var(--text);
-        padding: 0 16px;
-        font-size: 16px;
+        padding: 0 12px;
+        font-size: 24px;
+        line-height: 1;
+        font-family: "VT323", monospace;
         outline: none;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
       }
 
       input:focus {
-        border-color: rgba(78, 234, 215, 0.88);
-        box-shadow: 0 0 0 3px rgba(78, 234, 215, 0.12);
+        border-color: #5a7cb1;
+        box-shadow: none;
       }
 
       .chooser {
@@ -268,23 +449,22 @@
       }
 
       .choice {
-        border: 1px solid rgba(148, 163, 184, 0.12);
-        background: rgba(8, 12, 24, 0.68);
-        border-radius: 18px;
-        padding: 12px 10px;
+        border: 2px solid var(--input-border);
+        background: rgba(13, 21, 35, 0.86);
+        border-radius: 10px;
+        padding: 10px 8px;
         cursor: pointer;
         color: var(--text);
-        transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+        transition: transform 90ms steps(2, end), border-color 130ms ease, background 130ms ease;
       }
 
       .choice:hover {
-        transform: translateY(-1px);
-        border-color: rgba(78, 234, 215, 0.28);
+        border-color: #5f82b8;
       }
 
       .choice[data-active="true"] {
-        border-color: rgba(78, 234, 215, 0.78);
-        background: linear-gradient(180deg, rgba(78, 234, 215, 0.13), rgba(8, 12, 24, 0.9));
+        border-color: var(--accent);
+        background: rgba(41, 192, 111, 0.12);
       }
 
       .choice img {
@@ -298,7 +478,7 @@
         display: block;
         margin-top: 6px;
         text-align: center;
-        font-size: 12px;
+        font-size: 18px;
         color: var(--muted);
         text-transform: capitalize;
       }
@@ -311,49 +491,39 @@
 
       .primary,
       .secondary {
-        height: 54px;
-        border-radius: 14px;
-        border: 0;
-        padding: 0 18px;
-        font-size: 15px;
-        font-weight: 700;
+        min-height: 46px;
+        border-radius: 50px;
+        border: 2px solid var(--input-border);
+        padding: 8px 12px;
+        font-size: 12px;
+        font-family: "Press Start 2P", cursive;
         cursor: pointer;
-        transition: transform 0.15s ease, filter 0.15s ease;
+        transition: transform 90ms steps(2, end), filter 120ms ease;
       }
 
       .primary {
         flex: 1;
-        color: #05111a;
-        background: linear-gradient(135deg, var(--accent), var(--accent-2));
-        box-shadow: 0 16px 32px rgba(78, 234, 215, 0.18);
+        color: #092012;
+        background: var(--accent);
+        border-color: var(--accent-strong);
       }
 
       .secondary {
         width: 160px;
         color: var(--text);
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.16);
+        background: #263752;
       }
 
       .primary:hover,
       .secondary:hover {
-        transform: translateY(-1px);
-        filter: brightness(1.02);
-      }
-
-      .hint,
-      .error {
-        font-size: 13px;
-        line-height: 1.5;
-      }
-
-      .hint {
-        color: var(--muted);
+        filter: brightness(1.06);
       }
 
       .error {
-        color: #fb7185;
-        min-height: 20px;
+        color: var(--danger);
+        min-height: 22px;
+        font-size: 18px;
+        line-height: 1;
       }
 
       @keyframes floaty {
@@ -366,6 +536,38 @@
         }
       }
 
+      @keyframes drift {
+        from {
+          transform: translateX(-10vw);
+        }
+        to {
+          transform: translateX(125vw);
+        }
+      }
+
+      @keyframes flicker {
+        0%,
+        100% {
+          opacity: 0.8;
+        }
+        33% {
+          opacity: 0.4;
+        }
+        66% {
+          opacity: 0.95;
+        }
+      }
+
+      @keyframes twinkle {
+        0%,
+        100% {
+          opacity: 0.25;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
       @media (max-width: 860px) {
         body {
           overflow-y: auto;
@@ -373,12 +575,15 @@
 
         .card {
           grid-template-columns: 1fr;
-          min-height: auto;
         }
 
         .preview-pane {
           border-right: 0;
-          border-bottom: 1px solid rgba(255,255,255,0.06);
+          border-bottom: 2px solid var(--input-border);
+        }
+
+        .preview-heading h1 {
+          font-size: 13px;
         }
 
         .chooser {
@@ -392,19 +597,71 @@
         .secondary {
           width: 100%;
         }
+
+        .shell {
+          padding: 14px;
+        }
       }
     </style>
   </head>
-  <body>
-    <div class="ambient"></div>
+  <body data-mode="day">
+    <div class="scene-bg" aria-hidden="true">
+      <div class="stars">
+        <span class="star" style="top: 8%; left: 11%"></span>
+        <span class="star" style="top: 13%; left: 21%"></span>
+        <span class="star" style="top: 11%; left: 35%"></span>
+        <span class="star" style="top: 7%; left: 48%"></span>
+        <span class="star" style="top: 16%; left: 58%"></span>
+        <span class="star" style="top: 9%; left: 69%"></span>
+        <span class="star" style="top: 18%; left: 76%"></span>
+        <span class="star" style="top: 14%; left: 86%"></span>
+        <span class="star" style="top: 20%; left: 6%"></span>
+        <span class="star" style="top: 24%; left: 16%"></span>
+        <span class="star" style="top: 22%; left: 31%"></span>
+        <span class="star" style="top: 28%; left: 42%"></span>
+        <span class="star" style="top: 26%; left: 54%"></span>
+        <span class="star" style="top: 24%; left: 64%"></span>
+        <span class="star" style="top: 22%; left: 74%"></span>
+        <span class="star" style="top: 30%; left: 83%"></span>
+      </div>
+
+      <div class="clouds">
+        <div class="cloud c1"></div>
+        <div class="cloud c2"></div>
+        <div class="cloud c3"></div>
+        <div class="cloud c4"></div>
+        <div class="cloud c5"></div>
+        <div class="cloud c6"></div>
+      </div>
+
+      <div class="city">
+        <div class="city-row back">
+          <div class="building" style="--h: 66%"></div>
+          <div class="building" style="--h: 54%"></div>
+          <div class="building" style="--h: 70%"></div>
+          <div class="building" style="--h: 58%"></div>
+          <div class="building" style="--h: 64%"></div>
+          <div class="building" style="--h: 52%"></div>
+        </div>
+        <div class="city-row front">
+          <div class="building" style="--h: 74%"></div>
+          <div class="building" style="--h: 88%"></div>
+          <div class="building" style="--h: 68%"></div>
+          <div class="building" style="--h: 84%"></div>
+          <div class="building" style="--h: 72%"></div>
+          <div class="building" style="--h: 80%"></div>
+          <div class="building" style="--h: 64%"></div>
+        </div>
+        <div class="ground-line"></div>
+      </div>
+    </div>
+
     <main class="shell">
       <section class="card" aria-label="Character selection">
         <div class="preview-pane">
           <div class="preview-heading">
-            <div class="badge" id="characterBadge">PL</div>
             <div>
               <h1>Public Lobby</h1>
-              <p>Choose a character and name before entering the room.</p>
             </div>
           </div>
 
@@ -419,12 +676,10 @@
             </div>
           </div>
 
-          <div class="name-pill" id="selectedNamePill">Name: Anonymous</div>
         </div>
 
         <div class="details-pane">
           <h2>Select your avatar</h2>
-          <div class="hint">Pick the character you want others to see and enter the name shown above your head.</div>
 
           <div class="field">
             <label for="displayNameInput">Name</label>

@@ -4,302 +4,670 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lobby · Pixel Office</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/png" href="/logo.png" />
     <style>
+      @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap");
+
       :root {
-        color-scheme: dark;
-        --bg: #050608;
-        --card-bg: #111827;
-        --border: #1f2937;
-        --accent: #22c55e;
-        --accent-soft: rgba(34, 197, 94, 0.12);
-        --text: #f9fafb;
-        --muted: #9ca3af;
-        --danger: #f97373;
-        --shadow: rgba(0, 0, 0, 0.75);
+        --sky-top: #7ebfe7;
+        --sky-bottom: #bfdff2;
+        --backdrop-image: url("/assets/background/backdrop_day.png");
+        --cloud-image: url("/assets/background/cloud_day.png");
+        --cloud: #f3f8ff;
+        --panel: rgba(26, 38, 58, 0.92);
+        --panel-border: #324a6f;
+        --panel-highlight: #4e6f9d;
+        --text: #f4f8ff;
+        --muted: #a4b5d1;
+        --input-bg: #1a243a;
+        --input-border: #2b3f63;
+        --accent: #29c06f;
+        --accent-strong: #1ca75f;
+        --danger: #ff7d7d;
+        --city-a: #212f48;
+        --city-b: #2a3b58;
+        --city-c: #16233a;
+        --window: #c7d6ea;
+        --window-glow: #ffe28a;
+        --star: #fff8cc;
+      }
+
+      body[data-mode="night"] {
+        --sky-top: #0f1731;
+        --sky-bottom: #25345b;
+        --backdrop-image: url("/assets/background/backdrop_night.png");
+        --cloud-image: url("/assets/background/cloud_night.png");
+        --cloud: #aab4d1;
+        --panel: rgba(16, 22, 39, 0.93);
+        --panel-border: #304771;
+        --panel-highlight: #4f6c9e;
+        --text: #f0f6ff;
+        --muted: #9aadcc;
+        --input-bg: #141f35;
+        --input-border: #2d4268;
+        --accent: #34c87a;
+        --accent-strong: #1cab62;
+        --city-a: #111b31;
+        --city-b: #19253f;
+        --city-c: #0d1528;
+        --window: #455676;
+        --window-glow: #ffd76c;
+        --star: #fff2a6;
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html,
+      body {
+        width: 100%;
+        min-height: 100%;
+      }
+
       body {
         margin: 0;
         min-height: 100vh;
-        background: radial-gradient(circle at top, #111827 0, var(--bg) 55%);
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
         color: var(--text);
+        font-family: "VT323", monospace;
+        letter-spacing: 0.02em;
+        overflow: hidden;
+        position: relative;
         display: flex;
+        align-items: center;
         justify-content: center;
-        padding: 24px 16px;
+      }
+
+      .scene-bg {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom));
+        transition: background 260ms ease;
+      }
+
+      .scene-bg::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: var(--backdrop-image);
+        background-repeat: repeat-x;
+        background-position: center bottom;
+        background-size: auto 100%;
+        image-rendering: pixelated;
+        opacity: 0.72;
+        transition: opacity 260ms ease;
+      }
+
+      body[data-mode="night"] .scene-bg::before {
+        opacity: 0.9;
+      }
+
+      .stars {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        transition: opacity 260ms ease;
+      }
+
+      body[data-mode="night"] .stars {
+        opacity: 1;
+      }
+
+      .star {
+        position: absolute;
+        width: 3px;
+        height: 3px;
+        background: var(--star);
+
+        .public-row,
+        .public-row * {
+          text-align: center;
+        }
+        animation: twinkle 1.8s steps(2, end) infinite;
+      }
+
+      .star:nth-child(odd) {
+        animation-delay: 0.8s;
+      }
+
+      .star:nth-child(3n) {
+        animation-delay: 1.3s;
+      }
+
+      .clouds {
+
+          .entry-btn {
+            width: 100%;
+          }
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .cloud {
+        position: absolute;
+        width: 4000px;
+        height: 500px;
+        background: var(--cloud-image) center / contain no-repeat;
+        image-rendering: pixelated;
+        opacity: 0.92;
+        transition: opacity 260ms ease;
+      }
+
+      .c1 {
+        top: 40px;
+        left: -120px;
+        animation: drift 44s linear infinite;
+      }
+
+      .c2 {
+        top: 100px;
+        left: -220px;
+        transform: scale(1.1);
+        animation: drift 58s linear infinite;
+        animation-delay: -16s;
+      }
+
+      .c3 {
+        top: 24px;
+        left: -300px;
+        transform: scale(1.0);
+        animation: drift 66s linear infinite;
+        animation-delay: -9s;
+      }
+
+      .c4 {
+        top: 104px;
+        left: -340px;
+        transform: scale(0.95);
+        animation: drift 62s linear infinite;
+        animation-delay: -20s;
+      }
+
+      .c5 {
+        top: 186px;
+        left: -280px;
+        transform: scale(1.15);
+        animation: drift 70s linear infinite;
+        animation-delay: -28s;
+      }
+
+      .c6 {
+        top: 58px;
+        left: -460px;
+        transform: scale(0.88);
+        animation: drift 74s linear infinite;
+        animation-delay: -36s;
+      }
+
+      .city {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 28vh;
+        min-height: 130px;
+        pointer-events: none;
+      }
+
+      .city-row {
+        position: absolute;
+        inset: auto 0 0 0;
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+        padding: 0 12px;
+      }
+
+      .city-row.back {
+        height: 68%;
+      }
+
+      .city-row.front {
+        height: 82%;
+      }
+
+      .building {
+        flex: 1;
+        min-width: 34px;
+        height: var(--h);
+        background: var(--city-a);
+        position: relative;
+      }
+
+      .city-row.back .building {
+        background: var(--city-b);
+      }
+
+      .city-row.front .building {
+        background: var(--city-c);
+      }
+
+      .building::before {
+        content: "";
+        position: absolute;
+        inset: 8px 6px 8px 6px;
+        background-image: repeating-linear-gradient(
+            to right,
+            var(--window) 0 6px,
+            transparent 6px 12px
+          ),
+          repeating-linear-gradient(to bottom, transparent 0 7px, rgba(0, 0, 0, 0.18) 7px 10px);
+        opacity: 0.34;
+      }
+
+      body[data-mode="night"] .building::before {
+        background-image: repeating-linear-gradient(
+            to right,
+            var(--window-glow) 0 6px,
+            transparent 6px 12px
+          ),
+          repeating-linear-gradient(to bottom, transparent 0 7px, rgba(0, 0, 0, 0.25) 7px 10px);
+        opacity: 0.76;
+        animation: flicker 2.6s steps(3, end) infinite;
+      }
+
+      .ground-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 8px;
+        background: linear-gradient(90deg, #2aa95f, #5be07f, #2aa95f);
       }
 
       .wrap {
-        width: 100%;
-        max-width: 980px;
+        position: relative;
+        z-index: 1;
+        width: min(420px, 90vw);
+        margin: 0 auto;
+        transform: translateY(0);
+      }
+
+      .panel {
+        border: 3px solid var(--panel-border);
+        box-shadow:
+          0 0 0 2px rgba(255, 255, 255, 0.08) inset,
+          0 26px 42px rgba(6, 10, 21, 0.35);
+        background: var(--panel);
+        border-radius: 12px;
+        backdrop-filter: blur(2px);
+        padding: 36px 28px 28px;
+        min-height: auto;
       }
 
       .topbar {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: space-between;
+        justify-content: center;
+        text-align: center;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+
+      .brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         gap: 12px;
-        margin-bottom: 18px;
+        width: 100%;
+      }
+
+      .brand-logo {
+        width: 56px;
+        height: 56px;
+        object-fit: contain;
+        image-rendering: pixelated;
+        border: 2px solid rgba(98, 132, 184, 0.55);
+        background: rgba(20, 30, 49, 0.75);
+        box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.45) inset;
+        flex-shrink: 0;
       }
 
       .title {
         margin: 0;
-        font-size: 22px;
-        font-weight: 650;
-        letter-spacing: 0.01em;
+        font-family: "Press Start 2P", cursive;
+        font-size: clamp(14px, 2vw, 18px);
+        line-height: 1.4;
+        letter-spacing: 0;
+        text-align: center;
       }
 
       .subtitle {
-        margin: 2px 0 0;
-        font-size: 13px;
+        margin: 6px 0 0;
+        font-size: 20px;
+        line-height: 1;
         color: var(--muted);
+        text-align: center;
       }
 
-      .logout {
-        border-radius: 999px;
-        border: 1px solid rgba(31, 41, 55, 0.9);
-        background: rgba(15, 23, 42, 0.85);
-        color: var(--muted);
-        padding: 10px 14px;
-        cursor: pointer;
-        transition: color 0.15s ease;
+      .controls {
+        display: flex;
+        position: fixed;
+        top: 16px;
+        right: 20px;
+        z-index: 10;
+        flex-direction: row;
+        gap: 8px;
       }
 
-      .logout:hover {
+      .pixel-btn {
+        border: 3px solid var(--panel-highlight);
+        background: #243752;
         color: var(--text);
+        font-family: "Press Start 2P", cursive;
+        font-size: 11px;
+        letter-spacing: 0;
+        border-radius: 50px;
+        min-height: 36px;
+        min-width: 42px;
+        padding: 7px 9px;
+        cursor: pointer;
+        transition: transform 90ms steps(2, end), filter 130ms ease;
       }
 
-      .grid {
+      .mode-icon {
+        display: inline-block;
+        font-size: 18px;
+        line-height: 1;
+        transform: translateY(1px);
+      }
+
+      .pixel-btn:hover {
+        filter: brightness(1.08);
+      }
+
+      .pixel-btn:active {
+        transform: translateY(2px);
+      }
+
+      .public-row {
+        display: block;
+        margin: 0 0 20px;
+        padding: 0;
+        text-align: center;
+      }
+
+      .entry-switch {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-bottom: 10px;
       }
 
-      .card {
-        background: linear-gradient(145deg, #020617, #020617, #020617, #020617);
-        border-radius: 18px;
-        padding: 18px;
-        border: 1px solid var(--border);
-        box-shadow:
-          0 18px 40px var(--shadow),
-          0 0 0 1px rgba(15, 23, 42, 0.7);
-      }
-
-      .card h2 {
-        margin: 0 0 6px;
-        font-size: 16px;
-        font-weight: 650;
-      }
-
-      .card p {
-        margin: 0 0 14px;
-        color: var(--muted);
+      .entry-btn {
+        border-radius: 50px;
+        min-height: 52px;
+        width: 100%;
         font-size: 13px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .entry-btn.mini-btn {
+        background: transparent;
+        color: var(--accent);
+        border: 2px solid var(--accent);
+      }
+
+      .entry-btn.mini-btn[data-active="true"] {
+        background: rgba(52, 200, 122, 0.14);
+        color: var(--accent);
+      }
+
+      .entry-btn[data-active="true"] {
+        filter: brightness(1.08);
+        box-shadow: 0 0 0 2px rgba(41, 192, 111, 0.32) inset;
+      }
+
+      .status-note {
+        color: var(--muted);
+        font-size: 16px;
+        margin: 4px 0 12px;
+      }
+
+      .socials {
+        position: fixed;
+        left: 50%;
+        bottom: 16px;
+        transform: translateX(-50%);
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .social-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 38px;
+        padding: 8px 12px;
+        border: 2px solid rgba(99, 129, 173, 0.6);
+        background: rgba(20, 31, 51, 0.88);
+        color: #d7e4ff;
+        text-decoration: none;
+        font-family: "Press Start 2P", cursive;
+        font-size: 10px;
+        line-height: 1;
+        box-shadow: 0 10px 24px rgba(6, 10, 21, 0.28);
+        transition: filter 120ms ease, transform 90ms steps(2, end);
+      }
+
+      .social-link:hover {
+        filter: brightness(1.1);
+      }
+
+      .social-link:active {
+        transform: translateY(2px);
+      }
+
+      .social-icon {
+        width: 16px;
+        height: 16px;
+        display: inline-block;
+      }
+
+      h2 {
+          margin: 0;
+          font-family: "Press Start 2P", cursive;
+          font-size: 14px;
+          line-height: 1.4;
+        }
+
+      p {
+          margin: 7px 0 0;
+          font-size: 17px;
+        line-height: 1;
+        color: var(--muted);
       }
 
       .button {
-        width: 100%;
-        border-radius: 999px;
-        border: 0;
-        padding: 11px 14px;
-        font-size: 14px;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-        background: linear-gradient(135deg, var(--accent), #22d3ee);
-        color: #020617;
-        cursor: pointer;
         display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        box-shadow:
-          0 12px 25px rgba(16, 185, 129, 0.4),
-          0 0 0 1px rgba(5, 46, 22, 0.5);
-        transition: filter 0.15s ease, transform 0.1s ease;
-      }
-
-      .button:disabled {
-        cursor: default;
-        opacity: 0.85;
-        filter: grayscale(0.2);
+        border-radius: 50px;
+        background: var(--accent);
+        color: #092012;
+        min-height: 40px;
+        min-width: 164px;
+        padding: 8px 12px;
+        font-family: "Press Start 2P", cursive;
+        font-size: 12px;
+        cursor: pointer;
+        transition: filter 120ms ease, transform 90ms steps(2, end);
       }
 
       .button:hover:not(:disabled) {
-        filter: brightness(1.05);
+        filter: brightness(1.06);
       }
 
-      .row {
-        display: flex;
-        gap: 10px;
-        align-items: center;
+      .button:active:not(:disabled) {
+        transform: translateY(2px);
+      }
+
+      .button:disabled,
+      .mini-btn:disabled,
+      .pixel-btn:disabled {
+        opacity: 0.75;
+        cursor: default;
+      }
+
+      .private-title {
+        margin-top: 6px;
+      }
+
+      .tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        border: 2px solid var(--input-border);
+        margin: 10px 0 10px;
+      }
+
+      .tab {
+        border: 0;
+        border-right: 2px solid var(--input-border);
+        background: transparent;
+        color: var(--muted);
+        min-height: 34px;
+        font-family: "Press Start 2P", cursive;
+        font-size: 10px;
+        cursor: pointer;
+      }
+
+      .tab:last-child {
+        border-right: 0;
+      }
+
+      .tab[data-active="true"] {
+        background: rgba(41, 192, 111, 0.18);
+        color: var(--text);
       }
 
       .field {
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 6px;
         margin-bottom: 10px;
       }
 
       label {
-        font-size: 12px;
+        font-size: 20px;
         color: var(--muted);
+        line-height: 1;
       }
 
       input,
       textarea {
         width: 100%;
-        border-radius: 12px;
-        border: 1px solid var(--border);
-        padding: 10px 12px;
-        font-size: 14px;
-        background: radial-gradient(circle at top, #020617, #020617);
+        border: 2px solid var(--input-border);
+        background: var(--input-bg);
         color: var(--text);
+        font-family: "VT323", monospace;
+        font-size: 23px;
+        line-height: 1;
+        padding: 8px 10px;
         outline: none;
       }
 
       textarea {
+        min-height: 72px;
         resize: vertical;
-        min-height: 84px;
       }
 
       input:focus,
       textarea:focus {
-        border-color: rgba(34, 197, 94, 0.9);
-        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.18);
+        border-color: #5a7cb1;
       }
 
-      .error {
-        color: var(--danger);
-        font-size: 12px;
-        margin-top: 10px;
-        white-space: pre-wrap;
-      }
-
-      .success {
-        color: var(--accent);
-        font-size: 12px;
-        margin-top: 10px;
-      }
-
-      .tabs {
+      .row {
         display: flex;
+        align-items: center;
         gap: 8px;
-        padding: 4px;
-        background: rgba(15, 23, 42, 0.85);
-        border: 1px solid rgba(31, 41, 55, 0.9);
-        border-radius: 999px;
-        margin-bottom: 12px;
       }
 
-      .tab {
-        border: 0;
-        border-radius: 999px;
-        padding: 8px 14px;
-        background: transparent;
-        color: var(--muted);
-        cursor: pointer;
-        font-size: 12px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-      }
-
-      .tab[data-active="true"] {
-        background: radial-gradient(circle at top, var(--accent-soft), rgba(15, 23, 42, 0.9));
+      .mini-btn {
+        border: 2px solid var(--input-border);
+        background: #263752;
         color: var(--text);
-        box-shadow:
-          0 0 0 1px rgba(34, 197, 94, 0.18),
-          0 6px 14px rgba(0, 0, 0, 0.8);
+        border-radius: 50px;
+        min-height: 36px;
+        font-family: "Press Start 2P", cursive;
+        font-size: 11px;
+        padding: 7px 10px;
+        cursor: pointer;
       }
 
       .rooms {
-        display: flex;
-        flex-direction: column;
+        display: grid;
         gap: 10px;
       }
 
       .room-card {
-        border-radius: 14px;
-        border: 1px solid rgba(31, 41, 55, 0.9);
-        background: rgba(2, 6, 23, 0.35);
-        padding: 12px;
-        cursor: pointer;
-        transition: border-color 0.15s ease;
+        border: 2px solid var(--input-border);
+        background: rgba(18, 29, 48, 0.78);
+        padding: 10px;
+        transition: border-color 120ms ease;
       }
 
       .room-card:hover {
-        border-color: rgba(34, 197, 94, 0.55);
+        border-color: #5f82b8;
       }
 
       .room-top {
         display: flex;
-        gap: 12px;
-        align-items: flex-start;
         justify-content: space-between;
+        gap: 12px;
       }
 
       .room-name {
-        font-weight: 700;
-        font-size: 14px;
+        font-family: "Press Start 2P", cursive;
+        font-size: 13px;
+        line-height: 1.4;
       }
 
       .room-desc {
-        margin-top: 6px;
+        margin-top: 8px;
         color: var(--muted);
-        font-size: 13px;
+        font-size: 18px;
+        line-height: 1;
       }
 
       .lock-badge {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        color: rgba(249, 250, 251, 0.9);
-        font-size: 12px;
       }
 
       .password-inline {
         margin-top: 10px;
-        display: flex;
+        display: grid;
+        grid-template-columns: 1fr auto;
         gap: 8px;
-        align-items: center;
       }
 
-      .password-inline input {
-        border-radius: 12px;
-        flex: 1;
+      .error {
+        color: var(--danger);
+        font-size: 18px;
+        line-height: 1;
+        margin-top: 8px;
+        white-space: pre-wrap;
       }
 
-      .mini-btn {
-        border: 1px solid rgba(31, 41, 55, 0.9);
-        background: rgba(15, 23, 42, 0.85);
-        color: var(--text);
-        border-radius: 12px;
-        padding: 10px 12px;
-        cursor: pointer;
-        transition: filter 0.15s ease;
-      }
-
-      .mini-btn:disabled {
-        cursor: default;
-        opacity: 0.85;
-      }
-
-      .mini-btn:hover:not(:disabled) {
-        filter: brightness(1.05);
+      #privateWorkspace {
+        display: none;
       }
 
       .spinner {
-        width: 14px;
-        height: 14px;
-        border-radius: 999px;
-        border: 2px solid rgba(255, 255, 255, 0.25);
-        border-top-color: rgba(34, 197, 94, 1);
-        animation: spin 0.7s linear infinite;
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(0, 0, 0, 0.2);
+        border-top-color: rgba(0, 0, 0, 0.65);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        display: inline-block;
+        margin-left: 8px;
       }
 
       @keyframes spin {
@@ -308,38 +676,189 @@
         }
       }
 
+      @keyframes drift {
+        from {
+          transform: translateX(-10vw);
+        }
+        to {
+          transform: translateX(125vw);
+        }
+      }
+
+      @keyframes flicker {
+        0%,
+        100% {
+          opacity: 0.8;
+        }
+        33% {
+          opacity: 0.4;
+        }
+        66% {
+          opacity: 0.95;
+        }
+      }
+
+      @keyframes twinkle {
+        0%,
+        100% {
+          opacity: 0.25;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
       @media (max-width: 900px) {
-        .grid {
+        .wrap {
+          transform: translateY(0);
+        }
+
+        .panel {
+          padding: 10px;
+        }
+
+        .topbar {
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .controls {
+          justify-content: flex-start;
+        }
+
+        .public-row {
           grid-template-columns: 1fr;
+        }
+
+        .entry-switch {
+          grid-template-columns: 1fr;
+        }
+
+        .button {
+          width: 100%;
+        }
+
+        .tab {
+          font-size: 10px;
+        }
+
+        .socials {
+          bottom: 10px;
+          gap: 8px;
+        }
+
+        .social-link {
+          min-height: 34px;
+          padding: 7px 9px;
+          font-size: 9px;
+        }
+
+        .subtitle,
+        p,
+        label,
+        .room-desc,
+        .error {
+          font-size: 19px;
+        }
+
+        input,
+        textarea {
+          font-size: 22px;
         }
       }
     </style>
   </head>
-  <body>
-    <div class="wrap">
-      <div class="topbar">
-        <div>
-          <h1 class="title">Pixel Office Lobby</h1>
-          <p class="subtitle">Choose a room to enter</p>
-        </div>
-
-        <button class="logout" id="logoutBtn" type="button">Logout</button>
+  <body data-mode="day">
+    <div class="scene-bg" aria-hidden="true">
+      <div class="stars">
+        <span class="star" style="top: 8%; left: 11%"></span>
+        <span class="star" style="top: 13%; left: 21%"></span>
+        <span class="star" style="top: 11%; left: 35%"></span>
+        <span class="star" style="top: 7%; left: 48%"></span>
+        <span class="star" style="top: 16%; left: 58%"></span>
+        <span class="star" style="top: 9%; left: 69%"></span>
+        <span class="star" style="top: 18%; left: 76%"></span>
+        <span class="star" style="top: 14%; left: 86%"></span>
+        <span class="star" style="top: 20%; left: 6%"></span>
+        <span class="star" style="top: 24%; left: 16%"></span>
+        <span class="star" style="top: 22%; left: 31%"></span>
+        <span class="star" style="top: 28%; left: 42%"></span>
+        <span class="star" style="top: 26%; left: 54%"></span>
+        <span class="star" style="top: 24%; left: 64%"></span>
+        <span class="star" style="top: 22%; left: 74%"></span>
+        <span class="star" style="top: 30%; left: 83%"></span>
       </div>
 
-      <div class="grid">
-        <section class="card">
-          <h2>Public Lobby</h2>
-          <p>Always online. Join with one click.</p>
-          <button class="button" id="publicConnectBtn" type="button">
-            <span id="publicConnectLabel">Connect to Public Lobby</span>
-            <span id="publicConnectSpinner" class="spinner" style="display: none"></span>
-          </button>
-          <div class="error" id="publicError" style="display: none"></div>
+      <div class="clouds">
+        <div class="cloud c1"></div>
+        <div class="cloud c2"></div>
+        <div class="cloud c3"></div>
+        <div class="cloud c4"></div>
+        <div class="cloud c5"></div>
+        <div class="cloud c6"></div>
+      </div>
+
+      <div class="city">
+        <div class="city-row back">
+          <div class="building" style="--h: 66%"></div>
+          <div class="building" style="--h: 54%"></div>
+          <div class="building" style="--h: 70%"></div>
+          <div class="building" style="--h: 58%"></div>
+          <div class="building" style="--h: 64%"></div>
+          <div class="building" style="--h: 52%"></div>
+        </div>
+        <div class="city-row front">
+          <div class="building" style="--h: 74%"></div>
+          <div class="building" style="--h: 88%"></div>
+          <div class="building" style="--h: 68%"></div>
+          <div class="building" style="--h: 84%"></div>
+          <div class="building" style="--h: 72%"></div>
+          <div class="building" style="--h: 80%"></div>
+          <div class="building" style="--h: 64%"></div>
+        </div>
+        <div class="ground-line"></div>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="panel">
+        <div class="topbar">
+          <div class="brand">
+            <img class="brand-logo" src="/logo.png" alt="Pixel Office logo" />
+            <div>
+              <h1 class="title">Welcome to Pixel Office</h1>
+              <p class="subtitle">Find your team room and jump in fast.</p>
+            </div>
+          </div>
+        </div>
+
+        <section class="public-row">
+          <div style="width: 100%">
+            <div class="entry-switch">
+              <button class="button entry-btn" id="entryPublicBtn" data-active="false" type="button">
+                Public Room
+              </button>
+              <button class="mini-btn entry-btn" id="entryPrivateBtn" data-active="false" type="button">
+                Private Room
+              </button>
+            </div>
+
+            <div class="status-note" id="entryStatus" style="display: none"></div>
+          </div>
         </section>
 
-        <section class="card">
-          <h2>Private Rooms</h2>
-          <p>Create a room or find one from the list.</p>
+        <div style="display: none" aria-hidden="true">
+          <button class="button" id="publicConnectBtn" type="button">
+            <span id="publicConnectLabel">Connect</span>
+            <span id="publicConnectSpinner" class="spinner" style="display: none"></span>
+          </button>
+        </div>
+
+        <div class="error" id="publicError" style="display: none"></div>
+
+        <section id="privateWorkspace">
+          <h2 class="private-title">Private Rooms</h2>
+          <p>Create a secure space or join one from the list.</p>
 
           <div class="tabs" id="privateTabs">
             <button class="tab" data-mode="create" data-active="true" type="button">
@@ -363,8 +882,8 @@
               </div>
 
               <div class="field">
-                <label for="roomPassword">Password (optional)</label>
-                <input id="roomPassword" name="roomPassword" placeholder="Leave empty if not needed" />
+                <label for="roomPassword">Password</label>
+                <input id="roomPassword" name="roomPassword" placeholder="Set a room password" required />
               </div>
 
               <button class="button" id="createRoomBtn" type="submit">
@@ -377,7 +896,7 @@
 
           <div id="privateFindPanel" style="display: none">
             <div class="row" style="justify-content: space-between; margin-bottom: 10px">
-              <div style="color: var(--muted); font-size: 13px">Available private rooms</div>
+              <div style="color: var(--muted); font-size: 18px; line-height: 1">Available private rooms</div>
               <button class="mini-btn" id="refreshRoomsBtn" type="button">Refresh</button>
             </div>
 
@@ -388,6 +907,86 @@
         </section>
       </div>
     </div>
+
+    <div class="controls">
+      <button class="pixel-btn" id="dayNightToggle" type="button" aria-pressed="false">
+        <span class="mode-icon" aria-hidden="true">☀</span>
+      </button>
+      <button class="pixel-btn" id="logoutBtn" type="button">Reset Guest</button>
+    </div>
+
+    <div class="socials" aria-label="Social links">
+      <a
+        class="social-link"
+        href="https://www.linkedin.com/in/bhavik-goyal-362216231"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="LinkedIn profile"
+      >
+        <svg class="social-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="2" y="2" width="20" height="20" rx="3" fill="#0A66C2" />
+          <rect x="6" y="10" width="3" height="8" fill="#FFFFFF" />
+          <circle cx="7.5" cy="7" r="1.5" fill="#FFFFFF" />
+          <path d="M12 10H15V11.2C15.5 10.5 16.2 10 17.2 10C19.1 10 20 11.2 20 13.4V18H17V14.1C17 13.3 16.7 12.7 15.8 12.7C14.9 12.7 14.5 13.3 14.5 14.1V18H12V10Z" fill="#FFFFFF" />
+        </svg>
+        LinkedIn
+      </a>
+
+      <a
+        class="social-link"
+        href="https://github.com/bhavik726"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="GitHub profile"
+      >
+        <svg class="social-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" fill="#111827" />
+          <path d="M9.4 18.2C6.2 19.2 6.2 16.6 5 16.2M13.8 20V17.4C13.8 16.6 13.9 16.2 13.4 15.7C15.7 15.4 18 14.6 18 10.8C18 9.8 17.6 8.9 17 8.2C17.2 7.5 17.2 6.8 17 6.2C17 6.2 16.2 5.9 13.8 7.5C12.3 7.1 10.7 7.1 9.2 7.5C6.8 5.9 6 6.2 6 6.2C5.8 6.8 5.8 7.5 6 8.2C5.4 8.9 5 9.8 5 10.8C5 14.6 7.3 15.4 9.6 15.7C9.1 16.2 9 16.7 9 17.4V20" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        GitHub
+      </a>
+    </div>
+
+    <script>
+      (function initDayNightMode() {
+        const storageKey = "pixel_office_lobby_theme";
+        const body = document.body;
+        const toggle = document.getElementById("dayNightToggle");
+        if (!toggle) return;
+
+        function applyMode(mode) {
+          const safeMode = mode === "night" ? "night" : "day";
+          body.setAttribute("data-mode", safeMode);
+          const isNight = safeMode === "night";
+          toggle.innerHTML = `<span class="mode-icon" aria-hidden="true">${isNight ? "☾" : "☀"}</span>`;
+          toggle.setAttribute("aria-label", isNight ? "Switch to day mode" : "Switch to night mode");
+          toggle.setAttribute("aria-pressed", isNight ? "true" : "false");
+        }
+
+        let initialMode = "day";
+        try {
+          const stored = window.localStorage.getItem(storageKey);
+          if (stored === "night" || stored === "day") {
+            initialMode = stored;
+          }
+        } catch {
+          // ignore storage read failures
+        }
+
+        applyMode(initialMode);
+
+        toggle.addEventListener("click", function () {
+          const currentMode = body.getAttribute("data-mode") === "night" ? "night" : "day";
+          const nextMode = currentMode === "night" ? "day" : "night";
+          applyMode(nextMode);
+          try {
+            window.localStorage.setItem(storageKey, nextMode);
+          } catch {
+            // ignore storage write failures
+          }
+        });
+      })();
+    </script>
 
     <script type="module" src="./src/lobby.js"></script>
   </body>

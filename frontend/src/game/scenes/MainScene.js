@@ -61,6 +61,10 @@ export default class MainScene extends Phaser.Scene {
     this.computerPromptText = null;
     this.interactKey = null;
     this.computerInteractRange = 18;
+    this.worldThemeMode = 'day';
+    this.worldBackground = null;
+    this.worldSunMoon = null;
+    this.worldClouds = [];
   }
   
   /**
@@ -80,6 +84,12 @@ export default class MainScene extends Phaser.Scene {
     this.load.image('Basement', '/assets/tiles/Basement.png');
     this.load.image('Generic', '/assets/tiles/Generic.png');
     this.load.image('Room_Builder_Walls', '/assets/tiles/Room_Builder_Walls.png');
+    this.load.image('bg_backdrop_day', '/assets/background/backdrop_day.png');
+    this.load.image('bg_backdrop_night', '/assets/background/backdrop_night.png');
+    this.load.image('bg_cloud_day', '/assets/background/cloud_day.png');
+    this.load.image('bg_cloud_night', '/assets/background/cloud_night.png');
+    this.load.image('bg_sun', '/assets/background/sun.png');
+    this.load.image('bg_moon', '/assets/background/moon.png');
 
     this.load.atlas(
       'adam',
@@ -137,6 +147,8 @@ export default class MainScene extends Phaser.Scene {
         return boundTileset;
       })
       .filter((ts) => ts !== null);
+
+    this.createWorldBackdrop();
     
     // Create all tile layers (skip only object layers "interactions" and "player_spawn")
     this.tilemap.layers.forEach((layerData) => {
@@ -210,6 +222,85 @@ export default class MainScene extends Phaser.Scene {
     this.setupUI();
     
     console.log('Scene created successfully!');
+  }
+
+  resolveWorldTheme() {
+    try {
+      const stored = window.localStorage.getItem('pixel_office_lobby_theme');
+      return stored === 'night' ? 'night' : 'day';
+    } catch {
+      return 'day';
+    }
+  }
+
+  createWorldBackdrop() {
+    this.worldThemeMode = this.resolveWorldTheme();
+
+    const mapWidth = Number(this.tilemap?.widthInPixels) || 1200;
+    const mapHeight = Number(this.tilemap?.heightInPixels) || 900;
+    const padX = 900;
+    const padY = 640;
+    const backdropWidth = mapWidth + padX * 2;
+    const backdropHeight = mapHeight + padY * 2;
+    const backdropKey = this.worldThemeMode === 'night' ? 'bg_backdrop_night' : 'bg_backdrop_day';
+    const cloudKey = this.worldThemeMode === 'night' ? 'bg_cloud_night' : 'bg_cloud_day';
+    const orbKey = this.worldThemeMode === 'night' ? 'bg_moon' : 'bg_sun';
+
+    // Set a fallback clear color so empty areas outside textures still match the scene theme.
+    this.cameras.main.setBackgroundColor(this.worldThemeMode === 'night' ? '#1b2a4b' : '#8fc8ea');
+
+    this.worldBackground = this.add
+      .tileSprite(mapWidth / 2, mapHeight / 2, backdropWidth, backdropHeight, backdropKey)
+      .setDepth(-1200)
+      .setScrollFactor(1)
+      .setAlpha(this.worldThemeMode === 'night' ? 0.95 : 0.88);
+
+    this.worldSunMoon = this.add
+      .image(mapWidth - 120, 90, orbKey)
+      .setDepth(-1170)
+      .setScrollFactor(0.92)
+      .setScale(2);
+
+    const cloudDefs = [
+      { x: mapWidth * 0.15, y: 110, scale: 1.2, speed: 0.12 },
+      { x: mapWidth * 0.52, y: 170, scale: 0.95, speed: 0.09 },
+      { x: mapWidth * 0.78, y: 135, scale: 1.05, speed: 0.14 },
+    ];
+
+    this.worldClouds = cloudDefs.map((cfg) => {
+      const cloud = this.add
+        .image(cfg.x, cfg.y, cloudKey)
+        .setDepth(-1160)
+        .setScrollFactor(0.9)
+        .setScale(cfg.scale)
+        .setAlpha(this.worldThemeMode === 'night' ? 0.7 : 0.9);
+
+      cloud.bgSpeed = cfg.speed;
+      return cloud;
+    });
+  }
+
+  updateWorldBackdrop() {
+    if (this.worldBackground) {
+      this.worldBackground.tilePositionX += this.worldThemeMode === 'night' ? 0.05 : 0.08;
+    }
+
+    if (!Array.isArray(this.worldClouds) || this.worldClouds.length === 0) {
+      return;
+    }
+
+    const worldWidth = Number(this.tilemap?.widthInPixels) || 1200;
+    this.worldClouds.forEach((cloud) => {
+      if (!cloud || !cloud.active) {
+        return;
+      }
+
+      cloud.x += cloud.bgSpeed || 0.1;
+      const cloudWidth = (cloud.displayWidth || 0) / 2;
+      if (cloud.x - cloudWidth > worldWidth + 180) {
+        cloud.x = -180;
+      }
+    });
   }
   
   /**
@@ -328,6 +419,8 @@ export default class MainScene extends Phaser.Scene {
    * Update loop (called every frame)
    */
   update() {
+    this.updateWorldBackdrop();
+
     if (this.player) {
       this.chairInteraction?.update();
       this.whiteboardInteraction?.update();
@@ -370,6 +463,13 @@ export default class MainScene extends Phaser.Scene {
 
     this.leaveRoomButton?.remove?.();
     this.leaveRoomButton = null;
+
+    this.worldBackground?.destroy?.();
+    this.worldBackground = null;
+    this.worldSunMoon?.destroy?.();
+    this.worldSunMoon = null;
+    this.worldClouds.forEach((cloud) => cloud?.destroy?.());
+    this.worldClouds = [];
 
     this.interactKey?.off?.('down');
     this.interactKey = null;

@@ -14,7 +14,6 @@ const createPanelEl = document.getElementById("privateCreatePanel");
 const findPanelEl = document.getElementById("privateFindPanel");
 
 const publicConnectBtn = document.getElementById("publicConnectBtn");
-const publicConnectLabel = document.getElementById("publicConnectLabel");
 const publicConnectSpinner = document.getElementById("publicConnectSpinner");
 const publicErrorEl = document.getElementById("publicError");
 
@@ -31,8 +30,41 @@ if (logoutBtn) {
   logoutBtn.textContent = "Reset Guest";
 }
 
-let activePasswordRoomId = null;
+const entryPublicBtn = document.getElementById("entryPublicBtn");
+const entryPrivateBtn = document.getElementById("entryPrivateBtn");
+const entryStatusEl = document.getElementById("entryStatus");
+const privateWorkspaceEl = document.getElementById("privateWorkspace");
+
 let joiningRoomBusy = false;
+let privateRoomsLoaded = false;
+
+function setEntryStatus(message) {
+  if (!entryStatusEl) return;
+  entryStatusEl.textContent = String(message || "");
+}
+
+function setEntryMode(mode) {
+  const isPrivate = mode === "private";
+
+  if (entryPublicBtn) entryPublicBtn.dataset.active = isPrivate ? "false" : "true";
+  if (entryPrivateBtn) entryPrivateBtn.dataset.active = isPrivate ? "true" : "false";
+
+  if (privateWorkspaceEl) {
+    privateWorkspaceEl.style.display = isPrivate ? "block" : "none";
+  }
+
+  if (isPrivate) {
+    setEntryStatus("Private mode active. Create a room or find an existing one.");
+  } else {
+    setEntryStatus("Connecting to the public room...");
+  }
+}
+
+async function ensurePrivateRoomsLoaded() {
+  if (privateRoomsLoaded) return;
+  await loadPrivateRoomsAndRender();
+  privateRoomsLoaded = true;
+}
 
 function getStoredValue(key) {
   try {
@@ -193,7 +225,6 @@ function renderRooms(rooms) {
       }
 
       // Toggle inline password box
-      activePasswordRoomId = room.id;
       roomsListEl.querySelectorAll("[data-passbox-for]").forEach((el) => {
         el.style.display = el.getAttribute("data-passbox-for") === room.id ? "flex" : "none";
       });
@@ -232,7 +263,7 @@ async function loadPrivateRoomsAndRender() {
     const allRooms = await res.json();
     const privateRooms = (allRooms || []).filter((r) => r.type !== "public");
     renderRooms(privateRooms);
-  } catch (e) {
+  } catch {
     // Your current backend only exposes GET /rooms/public, which returns public rooms only.
     // Without GET /rooms (all rooms) or GET /rooms/private, the frontend cannot list private rooms.
     setInlineError(
@@ -292,6 +323,16 @@ async function joinRoomNow(roomId, password, cardEl) {
 
 publicConnectBtn.addEventListener("click", () => {
   void connectPublicLobby();
+});
+
+entryPublicBtn?.addEventListener("click", () => {
+  setEntryMode("public");
+  void connectPublicLobby();
+});
+
+entryPrivateBtn?.addEventListener("click", () => {
+  setEntryMode("private");
+  void ensurePrivateRoomsLoaded();
 });
 
 async function connectPublicLobby() {
@@ -423,5 +464,12 @@ async function createPrivateRoomAndJoin() {
 // Auth guard
 ensureGuestId();
 togglePrivatePanel("create");
-void loadPrivateRoomsAndRender();
+if (privateWorkspaceEl && entryPrivateBtn) {
+  privateWorkspaceEl.style.display = "none";
+  if (entryPublicBtn) entryPublicBtn.dataset.active = "false";
+  entryPrivateBtn.dataset.active = "false";
+  setEntryStatus("Select Private to create or find a room.");
+} else {
+  void ensurePrivateRoomsLoaded();
+}
 
