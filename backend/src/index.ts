@@ -34,7 +34,7 @@ setupColyseusRooms(colyseusServer);
 // Colyseus monitor (admin UI at /colyseus)
 app.use('/colyseus', monitor());
 
-const PORT = Number(env.PORT);
+const PORT = Number(env.PORT) || 4000;
 const HOST = env.HOST;
 
 server.on('error', (error: NodeJS.ErrnoException) => {
