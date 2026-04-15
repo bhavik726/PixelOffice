@@ -50,6 +50,8 @@ export default class MainScene extends Phaser.Scene {
     this.whiteboardInteraction = null;
     this.wboOverlay = null;
     this.whiteboardActive = false;
+    this.meetingModeActive = false;
+    this.videoOverlay = null;
     this.chatBubbles = new Map();
     this.chatOverlay = null;
     this.chatInputActive = false;
@@ -88,7 +90,6 @@ export default class MainScene extends Phaser.Scene {
     this.load.image('bg_backdrop_night', '/assets/background/backdrop_night.png');
     this.load.image('bg_cloud_day', '/assets/background/cloud_day.png');
     this.load.image('bg_cloud_night', '/assets/background/cloud_night.png');
-    this.load.image('bg_sun', '/assets/background/sun.png');
     this.load.image('bg_moon', '/assets/background/moon.png');
 
     this.load.atlas(
@@ -111,6 +112,43 @@ export default class MainScene extends Phaser.Scene {
       '/assets/character/nancy.png',
       '/assets/character/nancy.json',
     );
+  }
+
+  ensureSunTexture() {
+    if (this.textures.exists('bg_sun')) {
+      return;
+    }
+
+    const texture = this.textures.createCanvas('bg_sun', 64, 64);
+    const context = texture.getContext();
+
+    context.clearRect(0, 0, 64, 64);
+
+    const gradient = context.createRadialGradient(32, 32, 6, 32, 32, 28);
+    gradient.addColorStop(0, '#fff7c2');
+    gradient.addColorStop(0.55, '#facc15');
+    gradient.addColorStop(1, '#f59e0b');
+
+    context.fillStyle = gradient;
+    context.beginPath();
+    context.arc(32, 32, 20, 0, Math.PI * 2);
+    context.fill();
+
+    context.strokeStyle = 'rgba(250, 204, 21, 0.7)';
+    context.lineWidth = 3;
+    for (let index = 0; index < 8; index += 1) {
+      const angle = (Math.PI * 2 * index) / 8;
+      const innerX = 32 + Math.cos(angle) * 24;
+      const innerY = 32 + Math.sin(angle) * 24;
+      const outerX = 32 + Math.cos(angle) * 29;
+      const outerY = 32 + Math.sin(angle) * 29;
+      context.beginPath();
+      context.moveTo(innerX, innerY);
+      context.lineTo(outerX, outerY);
+      context.stroke();
+    }
+
+    texture.refresh();
   }
   
   /**
@@ -143,6 +181,7 @@ export default class MainScene extends Phaser.Scene {
       })
       .filter((ts) => ts !== null);
 
+    this.ensureSunTexture();
     this.createWorldBackdrop();
     
     // Create all tile layers (skip only object layers "interactions" and "player_spawn")
@@ -362,6 +401,32 @@ export default class MainScene extends Phaser.Scene {
       this.leaveRoomButton = button;
     }
   }
+
+  resolveMeetingWhiteboardBoardId() {
+    const roomId = String(this.room?.roomId || '').trim();
+    if (!roomId) {
+      return null;
+    }
+
+    return `${roomId}-wb-3`;
+  }
+
+  syncMeetingWhiteboardButton() {
+    this.videoOverlay?.syncMeetingWhiteboardButton?.();
+  }
+
+  openMeetingWhiteboard() {
+    const boardId = this.resolveMeetingWhiteboardBoardId();
+    if (!boardId) {
+      return;
+    }
+
+    this.wboOverlay?.open?.(boardId);
+  }
+
+  updateMeetingUi() {
+    this.syncMeetingWhiteboardButton();
+  }
   
   /**
    * Exit current session and return to lobby.
@@ -408,6 +473,7 @@ export default class MainScene extends Phaser.Scene {
    */
   update() {
     this.updateWorldBackdrop();
+    this.syncMeetingWhiteboardButton();
 
     if (this.player) {
       this.chairInteraction?.update();

@@ -178,6 +178,7 @@ function ensureStyles() {
     #${CONTAINER_ID} .local-controls {
       position: static;
       display: flex;
+      flex-direction: row;
       justify-content: center;
       gap: 6px;
       align-items: center;
@@ -222,6 +223,45 @@ function ensureStyles() {
     }
 
     #${CONTAINER_ID} .local-controls button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    #${CONTAINER_ID} .local-whiteboard-action {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 6px;
+      pointer-events: auto;
+    }
+
+    #${CONTAINER_ID} .meeting-whiteboard-button {
+      width: 100%;
+      min-height: 32px;
+      padding: 6px 10px;
+      border: 1px solid rgba(226, 232, 240, 0.75);
+      border-radius: 10px;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      background: #ffffff;
+      color: #111827;
+      cursor: pointer;
+      transition: transform 120ms ease, background 120ms ease, color 120ms ease, opacity 120ms ease;
+      white-space: normal;
+      text-align: center;
+      line-height: 1.15;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #${CONTAINER_ID} .meeting-whiteboard-button:hover:not(:disabled) {
+      background: #f8fafc;
+      transform: translateY(-1px);
+      color: #0f172a;
+    }
+
+    #${CONTAINER_ID} .meeting-whiteboard-button:disabled {
       opacity: 0.45;
       cursor: not-allowed;
     }
@@ -284,6 +324,7 @@ export class VideoOverlay {
     this.refreshTimer = null;
     this.muteButton = null;
     this.videoButton = null;
+    this.meetingButton = null;
     this.profileBySessionId = new Map();
     this.remoteMediaStates = new Map();
 
@@ -359,10 +400,24 @@ export class VideoOverlay {
       this.emitLocalMediaState();
     });
 
+    const meetingAction = document.createElement('div');
+    meetingAction.className = 'local-whiteboard-action';
+
+    const meetingButton = document.createElement('button');
+    meetingButton.type = 'button';
+    meetingButton.className = 'meeting-whiteboard-button';
+    meetingButton.textContent = 'Open Whiteboard';
+    meetingButton.title = 'Open the meeting whiteboard';
+    meetingButton.addEventListener('click', () => {
+      this.options?.scene?.openMeetingWhiteboard?.();
+    });
+
     controls.appendChild(muteButton);
     controls.appendChild(videoButton);
+    meetingAction.appendChild(meetingButton);
 
     local.tile.appendChild(controls);
+    local.tile.appendChild(meetingAction);
     local.tile.appendChild(local.label);
     this.localAnchor.appendChild(local.tile);
 
@@ -378,7 +433,9 @@ export class VideoOverlay {
     this.localControls = controls;
     this.muteButton = muteButton;
     this.videoButton = videoButton;
+    this.meetingButton = meetingButton;
     this.syncControlsState();
+    this.syncMeetingWhiteboardButton();
   }
 
   syncControlsState() {
@@ -400,6 +457,19 @@ export class VideoOverlay {
     this.muteButton.classList.toggle('is-active', !muted);
     this.videoButton.classList.toggle('is-active', videoOn);
     this.videoButton.classList.toggle('is-muted', !videoOn);
+  }
+
+  syncMeetingWhiteboardButton() {
+    if (!this.meetingButton) {
+      return;
+    }
+
+    const scene = this.options?.scene;
+    const boardId = String(scene?.room?.roomId || '').trim();
+    const available = Boolean(scene?.meetingModeActive && boardId && typeof scene?.openMeetingWhiteboard === 'function');
+
+    this.meetingButton.style.display = available ? 'inline-flex' : 'none';
+    this.meetingButton.disabled = !available;
   }
 
   createTile(sessionId, { username = '', width = 160, height = 120, isLocal = false } = {}) {
@@ -778,6 +848,7 @@ export class VideoOverlay {
     this.localControls = null;
     this.muteButton = null;
     this.videoButton = null;
+    this.meetingButton = null;
 
     this.container?.remove();
     this.container = null;

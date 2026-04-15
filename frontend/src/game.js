@@ -121,6 +121,7 @@ export async function createGame() {
     }
     
     scene.room = room;
+    room.onMessage('computer-zone-state', () => {});
 
     scene.chatOverlay = new ChatOverlay(scene);
     scene.chatOverlay.bindRoom(room);
@@ -130,8 +131,59 @@ export async function createGame() {
     let peerManager = null;
     let proximityManager = null;
     let computerZoneManager = null;
+    let mediaBootstrapCleanup = null;
+
+    const syncLiveMedia = (emitState = true) => {
+      const stream = mediaControls.getStream();
+      if (!(stream instanceof MediaStream)) {
+        return false;
+      }
+
+      peerManager?.setLocalStream?.(stream);
+      videoOverlay?.setLocalStream?.(stream);
+      if (emitState) {
+        videoOverlay?.emitLocalMediaState?.();
+      }
+
+      return true;
+    };
+
+    const setupLazyMediaBootstrap = () => {
+      if (mediaBootstrapCleanup || mediaControls.getStream()) {
+        return;
+      }
+
+      const handler = async () => {
+        if (mediaControls.getStream()) {
+          mediaBootstrapCleanup?.();
+          return;
+        }
+
+        const granted = await mediaControls.getUserMedia(true);
+        if (!granted) {
+          return;
+        }
+
+        syncLiveMedia(true);
+        proximityManager?.tick?.();
+        mediaBootstrapCleanup?.();
+      };
+
+      const events = ["pointerdown", "touchstart", "keydown"];
+      events.forEach((eventName) => {
+        window.addEventListener(eventName, handler, { passive: true });
+      });
+
+      mediaBootstrapCleanup = () => {
+        events.forEach((eventName) => {
+          window.removeEventListener(eventName, handler);
+        });
+        mediaBootstrapCleanup = null;
+      };
+    };
 
     const cleanupWebRTC = () => {
+      mediaBootstrapCleanup?.();
       computerZoneManager?.destroy?.();
       proximityManager?.destroy?.();
       peerManager?.destroy?.();
@@ -139,9 +191,9 @@ export async function createGame() {
       videoOverlay?.destroy?.();
 
       proximityManager = null;
-      computerZoneManager = null;
       peerManager = null;
       videoOverlay = null;
+      scene.videoOverlay = null;
     };
 
     const mediaReady = await mediaControls.init();
@@ -149,6 +201,7 @@ export async function createGame() {
     if (!mediaReady || !mediaControls.getStream()) {
       console.error('[game.js] CRITICAL: WebRTC media stream not available - proximity voice/video disabled');
       videoOverlay = new VideoOverlay(mediaControls, {
+        scene,
         localProfile: {
           name: displayName || 'You',
           characterKey,
@@ -160,6 +213,7 @@ export async function createGame() {
       // Continue with null stream - ProximityManager should be disabled
     } else {
       videoOverlay = new VideoOverlay(mediaControls, {
+        scene,
         localProfile: {
           name: displayName || 'You',
           characterKey,
@@ -170,6 +224,12 @@ export async function createGame() {
       });
       videoOverlay.setLocalStream(mediaControls.getStream());
       videoOverlay.emitLocalMediaState?.();
+    }
+
+    scene.videoOverlay = videoOverlay;
+
+    if (!mediaControls.getStream()) {
+      setupLazyMediaBootstrap();
     }
 
     room.onMessage('media-state', (payload) => {
@@ -183,8 +243,9 @@ export async function createGame() {
       });
     });
 
-    peerManager = new PeerManager(room, mediaControls.getStream(), videoOverlay);
+    peerManager = new PeerManager(room, mediaControls.getStream(), videoOverlay, mediaControls);
     await peerManager.init();
+    syncLiveMedia(true);
 
     proximityManager = new ProximityManager(scene, peerManager);
     proximityManager.start();

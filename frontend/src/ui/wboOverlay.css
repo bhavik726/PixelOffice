@@ -16,7 +16,10 @@
 .wbo-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.75);
+  background:
+    radial-gradient(circle at top, rgba(30, 41, 59, 0.62), rgba(2, 6, 23, 0.9) 64%),
+    rgba(2, 6, 23, 0.85);
+  backdrop-filter: blur(14px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -25,23 +28,24 @@
 
 .wbo-container {
   position: relative;
-  width: 90vw;
-  height: 90vh;
-  max-width: 1400px;
-  max-height: 800px;
-  background: #1e293b;
-  border-radius: 12px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+  width: min(94vw, 1440px);
+  height: min(92vh, 840px);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 0.98));
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 20px;
+  box-shadow:
+    0 30px 100px rgba(2, 6, 23, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: slideIn 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes slideIn {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: translateY(12px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -51,14 +55,22 @@
 
 .wbo-header {
   display: flex;
+  gap: 16px;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  background: #0f172a;
-  border-bottom: 1px solid #334155;
-  flex-shrink: 0;
+  padding: 18px 20px 16px 24px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.88));
+  border-bottom: 1px solid rgba(51, 65, 85, 0.9);
   position: relative;
+  flex-shrink: 0;
   z-index: 10;
+}
+
+.wbo-header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
 }
 
 .wbo-title {
@@ -68,53 +80,93 @@
 }
 
 .wbo-title strong {
-  color: #f1f5f9;
-  font-size: 18px;
-  font-weight: 600;
+  color: #f8fafc;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .wbo-title span {
-  color: #94a3b8;
-  font-size: 12px;
+  max-width: 56ch;
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.wbo-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wbo-service-badge,
+.wbo-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.wbo-service-badge {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 42, 0.72);
+  color: #e2e8f0;
+}
+
+.wbo-status {
+  border: 1px solid rgba(34, 197, 94, 0.24);
+  background: rgba(34, 197, 94, 0.12);
+  color: #bbf7d0;
+}
+
+.wbo-actions {
+  display: flex;
+  align-items: flex-start;
+  flex-shrink: 0;
 }
 
 .wbo-close-button {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  font-size: 24px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #f8fafc;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
-  padding: 8px;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
-  min-width: 40px;
-  min-height: 40px;
+  border-radius: 12px;
+  min-width: 44px;
+  min-height: 44px;
   appearance: none;
   pointer-events: auto;
   position: relative;
   z-index: 20;
-  transition: all 0.2s ease;
+  box-shadow: 0 8px 20px rgba(2, 6, 23, 0.35);
+  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .wbo-close-button:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  background: rgba(30, 41, 59, 0.96);
+  border-color: rgba(148, 163, 184, 0.42);
 }
 
 .wbo-close-button:active {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  transform: scale(0.95);
+  background: rgba(51, 65, 85, 0.98);
+  transform: scale(0.96);
 }
 
 .wbo-close-button:focus-visible {
-  outline: 2px solid #ffffff;
+  outline: 2px solid #e2e8f0;
   outline-offset: 2px;
-  color: #ffffff;
 }
 
 .wbo-iframe {
@@ -123,5 +175,42 @@
   width: 100%;
   height: 100%;
   background: #fff;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
   pointer-events: auto;
+}
+
+@media (max-width: 720px) {
+  .wbo-container {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .wbo-header {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .wbo-header-content {
+    gap: 10px;
+  }
+
+  .wbo-title strong {
+    font-size: 18px;
+  }
+
+  .wbo-title span {
+    font-size: 12px;
+  }
+
+  .wbo-actions {
+    align-self: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wbo-container {
+    animation: none;
+  }
 }

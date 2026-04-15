@@ -113,6 +113,9 @@ export class ProximityManager {
       return;
     }
 
+    this.scene.meetingModeActive = localInMeeting;
+    this.scene.updateMeetingUi?.();
+
     if (this.localInMeeting !== null) {
       this.showMeetingToast(localInMeeting ? 'Entered Meeting Mode' : 'Exited Meeting Mode');
     }

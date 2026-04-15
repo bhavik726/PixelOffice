@@ -46,6 +46,7 @@ Optional frontend environment variables:
 
 - `VITE_API_BASE_URL` (defaults to `http://127.0.0.1:4000`)
 - `VITE_COLYSEUS_URL` (defaults to ws/wss derived from API base URL)
+- `VITE_WHITEBOARD_BASE_URL` (defaults to `http://127.0.0.1:8080` in local dev; set this in production when the whiteboard is deployed separately)
 
 ## Database Setup (Supabase)
 

@@ -184,7 +184,8 @@ export class ComputerZoneManager {
     }
 
     this.cameraStream = await this.peerManager.getCameraStream();
-    this.shouldStopCameraStream = true;
+    this.mediaControls?.attachStream?.(this.cameraStream);
+    this.shouldStopCameraStream = false;
     this.applyPreferredMediaState(this.cameraStream);
     return this.cameraStream;
   }

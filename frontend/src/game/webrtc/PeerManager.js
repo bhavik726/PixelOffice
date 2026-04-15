@@ -8,10 +8,11 @@ function sanitizePeerId(id) {
 }
 
 export class PeerManager {
-  constructor(room, localStream, videoOverlay) {
+  constructor(room, localStream, videoOverlay, mediaControls = null) {
     this.room = room;
     this.localStream = localStream || null;
     this.videoOverlay = videoOverlay;
+    this.mediaControls = mediaControls;
     this.peer = null;
     this.initialized = false;
     this.destroyed = false;
@@ -29,6 +30,12 @@ export class PeerManager {
   }
 
   getOutboundStream() {
+    const liveStream = this.mediaControls?.getStream?.();
+    if (liveStream instanceof MediaStream) {
+      this.localStream = liveStream;
+      return liveStream;
+    }
+
     if (this.localStream instanceof MediaStream) {
       return this.localStream;
     }
@@ -36,8 +43,40 @@ export class PeerManager {
     return new MediaStream();
   }
 
+  setLocalStream(stream) {
+    this.localStream = stream instanceof MediaStream ? stream : null;
+    void this.syncActiveCallTracks();
+  }
+
+  async syncActiveCallTracks() {
+    const stream = this.getOutboundStream();
+    const audioTrack = stream.getAudioTracks?.()[0] || null;
+    const videoTrack = stream.getVideoTracks?.()[0] || null;
+
+    const updates = [];
+    const calls = [
+      ...this.outgoingCalls.values(),
+      ...this.incomingCalls.values(),
+    ];
+
+    calls.forEach((entry) => {
+      const senders = entry?.call?.peerConnection?.getSenders?.() || [];
+      senders.forEach((sender) => {
+        if (sender?.track?.kind === 'audio') {
+          updates.push(sender.replaceTrack(audioTrack));
+        } else if (sender?.track?.kind === 'video') {
+          updates.push(sender.replaceTrack(videoTrack));
+        }
+      });
+    });
+
+    if (updates.length > 0) {
+      await Promise.allSettled(updates);
+    }
+  }
+
   getLocalMediaState() {
-    const stream = this.localStream;
+    const stream = this.getOutboundStream();
     const videoTracks = stream?.getVideoTracks?.() || [];
     const audioTracks = stream?.getAudioTracks?.() || [];
 
@@ -432,6 +471,7 @@ export class PeerManager {
     this.room = null;
     this.localStream = null;
     this.videoOverlay = null;
+    this.mediaControls = null;
   }
 }
 
