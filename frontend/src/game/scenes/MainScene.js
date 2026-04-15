@@ -26,6 +26,33 @@ function normalizeCharacterKey(characterKey, avatarId) {
   return 'adam';
 }
 
+function isNetworkDiagnosticsEnabled() {
+  const envEnabled =
+    typeof import.meta !== 'undefined' &&
+    import.meta.env &&
+    import.meta.env.VITE_NETWORK_DIAGNOSTICS === '1';
+
+  let queryEnabled = false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    queryEnabled =
+      params.get('netDiag') === '1' ||
+      params.get('diag') === '1' ||
+      params.get('networkDebug') === '1';
+  } catch {
+    queryEnabled = false;
+  }
+
+  let storageEnabled = false;
+  try {
+    storageEnabled = window.localStorage.getItem('pixel_office_net_diag') === '1';
+  } catch {
+    storageEnabled = false;
+  }
+
+  return Boolean(envEnabled || queryEnabled || storageEnabled);
+}
+
 /**
  * Main Game Scene
  * Handles map loading, tileset management, collision setup, and player initialization
@@ -67,6 +94,18 @@ export default class MainScene extends Phaser.Scene {
     this.worldBackground = null;
     this.worldSunMoon = null;
     this.worldClouds = [];
+    this.networkDiagnosticsEnabled = false;
+    this.diagLastFrameAt = 0;
+    this.diagRenderWindowStartedAt = 0;
+    this.diagRenderFrameCount = 0;
+    this.diagRenderTotalDeltaMs = 0;
+    this.diagRenderMaxDeltaMs = 0;
+    this.diagMoveSendCount = 0;
+    this.diagLastCameraLogAt = 0;
+  }
+
+  setNetworkDiagnostics(enabled) {
+    this.networkDiagnosticsEnabled = Boolean(enabled);
   }
   
   /**
@@ -155,6 +194,8 @@ export default class MainScene extends Phaser.Scene {
    * Create the scene (called after preload)
    */
   create() {
+    this.networkDiagnosticsEnabled = this.networkDiagnosticsEnabled || isNetworkDiagnosticsEnabled();
+
     // Create the tilemap from the loaded JSON with explicit tile dimensions
     this.tilemap = this.make.tilemap({
       key: 'pixel-office-map',
@@ -472,6 +513,46 @@ export default class MainScene extends Phaser.Scene {
    * Update loop (called every frame)
    */
   update() {
+    if (this.networkDiagnosticsEnabled) {
+      const now = performance.now();
+      if (this.diagLastFrameAt > 0) {
+        const frameDeltaMs = now - this.diagLastFrameAt;
+        this.diagRenderFrameCount += 1;
+        this.diagRenderTotalDeltaMs += frameDeltaMs;
+        this.diagRenderMaxDeltaMs = Math.max(this.diagRenderMaxDeltaMs, frameDeltaMs);
+      }
+
+      if (this.diagRenderWindowStartedAt === 0) {
+        this.diagRenderWindowStartedAt = now;
+      }
+
+      const renderWindowMs = now - this.diagRenderWindowStartedAt;
+      if (renderWindowMs >= 1000) {
+        const fps = this.diagRenderFrameCount > 0
+          ? (this.diagRenderFrameCount * 1000) / renderWindowMs
+          : 0;
+        const avgFrameMs = this.diagRenderFrameCount > 0
+          ? this.diagRenderTotalDeltaMs / this.diagRenderFrameCount
+          : 0;
+
+        console.log('[DIAG][render-loop]', {
+          ts: Date.now(),
+          fps: Number(fps.toFixed(2)),
+          avgFrameMs: Number(avgFrameMs.toFixed(2)),
+          maxFrameMs: Number(this.diagRenderMaxDeltaMs.toFixed(2)),
+          moveSendsPerSec: this.diagMoveSendCount,
+        });
+
+        this.diagRenderWindowStartedAt = now;
+        this.diagRenderFrameCount = 0;
+        this.diagRenderTotalDeltaMs = 0;
+        this.diagRenderMaxDeltaMs = 0;
+        this.diagMoveSendCount = 0;
+      }
+
+      this.diagLastFrameAt = now;
+    }
+
     this.updateWorldBackdrop();
     this.syncMeetingWhiteboardButton();
 
@@ -491,6 +572,9 @@ export default class MainScene extends Phaser.Scene {
       // Send player position to Colyseus server if connected
       if (this.room) {
         const sync = this.player.getSyncState();
+        if (this.networkDiagnosticsEnabled) {
+          this.diagMoveSendCount += 1;
+        }
         this.room.send('move', { 
           x: Math.round(sync.x), 
           y: Math.round(sync.y),
@@ -498,6 +582,28 @@ export default class MainScene extends Phaser.Scene {
           isMoving: sync.isMoving,
           isSitting: sync.isSitting,
         });
+      }
+
+      if (this.networkDiagnosticsEnabled && this.player?.sprite) {
+        const camera = this.cameras.main;
+        const drift = Phaser.Math.Distance.Between(
+          camera.midPoint.x,
+          camera.midPoint.y,
+          this.player.sprite.x,
+          this.player.sprite.y,
+        );
+        const now = Date.now();
+        if (drift > 6 && now - this.diagLastCameraLogAt >= 500) {
+          this.diagLastCameraLogAt = now;
+          console.log('[DIAG][camera-follow]', {
+            ts: now,
+            drift: Number(drift.toFixed(2)),
+            cameraX: Number(camera.midPoint.x.toFixed(2)),
+            cameraY: Number(camera.midPoint.y.toFixed(2)),
+            playerX: Number(this.player.sprite.x.toFixed(2)),
+            playerY: Number(this.player.sprite.y.toFixed(2)),
+          });
+        }
       }
     }
   }
@@ -717,6 +823,17 @@ export default class MainScene extends Phaser.Scene {
 
       // Avoid jitter from constant server echo corrections; only hard-correct when drift is meaningful.
       if (drift > 28) {
+        if (this.networkDiagnosticsEnabled) {
+          console.warn('[DIAG][local-correction]', {
+            ts: Date.now(),
+            sessionId,
+            drift: Number(drift.toFixed(2)),
+            fromX: Number(localPosition.x.toFixed(2)),
+            fromY: Number(localPosition.y.toFixed(2)),
+            toX: Number(resolvedX.toFixed(2)),
+            toY: Number(resolvedY.toFixed(2)),
+          });
+        }
         this.player.setPosition(resolvedX, resolvedY);
       }
 
@@ -780,6 +897,20 @@ export default class MainScene extends Phaser.Scene {
     }
 
     if (rect) {
+      if (this.networkDiagnosticsEnabled && Number.isFinite(existing.x) && Number.isFinite(existing.y)) {
+        const remoteJump = Phaser.Math.Distance.Between(existing.x, existing.y, resolvedX, resolvedY);
+        if (remoteJump > 45) {
+          console.log('[DIAG][remote-jump]', {
+            ts: Date.now(),
+            sessionId,
+            jumpDistance: Number(remoteJump.toFixed(2)),
+            fromX: Number(existing.x.toFixed(2)),
+            fromY: Number(existing.y.toFixed(2)),
+            toX: Number(resolvedX.toFixed(2)),
+            toY: Number(resolvedY.toFixed(2)),
+          });
+        }
+      }
       rect.x = resolvedX;
       rect.y = resolvedY;
     }

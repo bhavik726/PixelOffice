@@ -51,6 +51,7 @@ class PixelOfficeState extends Schema {
 }
 
 const ROOM_INACTIVITY_TIMEOUT_MS = Number(env.ROOM_INACTIVITY_TIMEOUT_MS || '300000');
+const NETWORK_DIAGNOSTICS_ENABLED = env.NETWORK_DIAGNOSTICS === '1';
 const CHARACTER_KEYS = ['adam', 'ash', 'lucy', 'nancy'] as const;
 type CharacterKey = (typeof CHARACTER_KEYS)[number];
 
@@ -124,6 +125,17 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
   private lastActivity = Date.now();
   private disposeRequested = false;
   private emptyRoomTimeout: NodeJS.Timeout | null = null;
+  private movementDiag = new Map<
+    string,
+    {
+      lastAt: number;
+      lastX: number;
+      lastY: number;
+      windowStartAt: number;
+      count: number;
+      maxInterArrivalMs: number;
+    }
+  >();
 
   private toComputerZonePayload() {
     const players: Record<
@@ -257,6 +269,23 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
       visibility: this.roomVisibility,
     });
 
+    if (NETWORK_DIAGNOSTICS_ENABLED) {
+      logger.info('PixelOffice movement diagnostics enabled', {
+        roomId: this.roomId,
+        dbRoomId: this.dbRoomId,
+        visibility: this.roomVisibility,
+      });
+
+      this.clock.setInterval(() => {
+        logger.info('PixelOffice diag heartbeat', {
+          roomId: this.roomId,
+          dbRoomId: this.dbRoomId,
+          activePlayers: this.state.players.size,
+          uptimeMs: Date.now() - this.lastActivity,
+        });
+      }, 5000);
+    }
+
     this.onMessage(
       'move',
       (
@@ -290,6 +319,71 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
         }
 
         const clamped = clampPosition(data.x, data.y);
+
+        if (NETWORK_DIAGNOSTICS_ENABLED) {
+          const now = Date.now();
+          const previous = this.movementDiag.get(client.sessionId);
+          const previousPlayerX = Number(player.x);
+          const previousPlayerY = Number(player.y);
+          const incomingDistance = Math.hypot(
+            clamped.x - previousPlayerX,
+            clamped.y - previousPlayerY,
+          );
+          const interArrivalMs = previous ? now - previous.lastAt : 0;
+
+          const nextEntry = {
+            lastAt: now,
+            lastX: clamped.x,
+            lastY: clamped.y,
+            windowStartAt: previous?.windowStartAt ?? now,
+            count: (previous?.count ?? 0) + 1,
+            maxInterArrivalMs: Math.max(previous?.maxInterArrivalMs ?? 0, interArrivalMs),
+          };
+          this.movementDiag.set(client.sessionId, nextEntry);
+
+          if (interArrivalMs > 0 && interArrivalMs > 200) {
+            logger.warn('PixelOffice move inter-arrival jitter', {
+              roomId: this.roomId,
+              sessionId: client.sessionId,
+              interArrivalMs,
+              x: clamped.x,
+              y: clamped.y,
+            });
+          }
+
+          if (incomingDistance > 60) {
+            logger.warn('PixelOffice move jump detected', {
+              roomId: this.roomId,
+              sessionId: client.sessionId,
+              jumpDistance: Number(incomingDistance.toFixed(2)),
+              fromX: Number(previousPlayerX.toFixed(2)),
+              fromY: Number(previousPlayerY.toFixed(2)),
+              toX: Number(clamped.x.toFixed(2)),
+              toY: Number(clamped.y.toFixed(2)),
+            });
+          }
+
+          const windowElapsedMs = now - nextEntry.windowStartAt;
+          if (windowElapsedMs >= 1000) {
+            const movesPerSec = (nextEntry.count * 1000) / windowElapsedMs;
+            logger.info('PixelOffice move rate', {
+              roomId: this.roomId,
+              sessionId: client.sessionId,
+              movesPerSec: Number(movesPerSec.toFixed(2)),
+              maxInterArrivalMs: nextEntry.maxInterArrivalMs,
+            });
+
+            this.movementDiag.set(client.sessionId, {
+              lastAt: now,
+              lastX: clamped.x,
+              lastY: clamped.y,
+              windowStartAt: now,
+              count: 0,
+              maxInterArrivalMs: 0,
+            });
+          }
+        }
+
         player.x = clamped.x;
         player.y = clamped.y;
 
@@ -499,6 +593,7 @@ export class PixelOfficeRoom extends Room<PixelOfficeState> {
     this.touchActivity();
     const playerLabel = this.getPlayerLabel(client.sessionId);
     this.state.players.delete(client.sessionId);
+    this.movementDiag.delete(client.sessionId);
     this.state.computerZone.players.delete(client.sessionId);
     this.broadcastComputerZoneState();
 

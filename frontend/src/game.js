@@ -20,6 +20,48 @@ const COLYSEUS_ROOM_ID_STORAGE_KEY = "colyseus_room_id";
 const GUEST_ID_STORAGE_KEY = "pixel_office_guest_id";
 const DISPLAY_NAME_STORAGE_KEY = "pixel_office_display_name";
 const CHARACTER_KEY_STORAGE_KEY = "pixel_office_character_key";
+const NETWORK_DIAG_STORAGE_KEY = "pixel_office_net_diag";
+
+function isNetworkDiagnosticsEnabled() {
+  const envEnabled =
+    typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    import.meta.env.VITE_NETWORK_DIAGNOSTICS === "1";
+
+  let queryEnabled = false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    queryEnabled =
+      params.get("netDiag") === "1" ||
+      params.get("diag") === "1" ||
+      params.get("networkDebug") === "1";
+  } catch {
+    queryEnabled = false;
+  }
+
+  const storageEnabled = getStoredValue(NETWORK_DIAG_STORAGE_KEY) === "1";
+  return Boolean(envEnabled || queryEnabled || storageEnabled);
+}
+
+function snapshotPlayers(playersState) {
+  const players = {};
+
+  if (!playersState || typeof playersState.forEach !== "function") {
+    return players;
+  }
+
+  playersState.forEach((player, sessionId) => {
+    players[sessionId] = {
+      x: Number(player?.x ?? 0),
+      y: Number(player?.y ?? 0),
+      direction: player?.direction,
+      isMoving: Boolean(player?.isMoving),
+      isSitting: Boolean(player?.isSitting),
+    };
+  });
+
+  return players;
+}
 
 function hasStateCallbacks() {
   return typeof _getStateCallbacks === "function";
@@ -56,6 +98,7 @@ function ensureGuestId() {
 export async function createGame() {
   // Create the Phaser game instance
   const game = new Phaser.Game(GameConfig);
+  const networkDiagnosticsEnabled = isNetworkDiagnosticsEnabled();
   
   // Wait for the scene to be fully initialized
   await new Promise((resolve) => {
@@ -182,8 +225,13 @@ export async function createGame() {
       };
     };
 
+    let pingLogIntervalId = null;
     const cleanupWebRTC = () => {
       mediaBootstrapCleanup?.();
+      if (pingLogIntervalId !== null) {
+        window.clearInterval(pingLogIntervalId);
+        pingLogIntervalId = null;
+      }
       computerZoneManager?.destroy?.();
       proximityManager?.destroy?.();
       peerManager?.destroy?.();
@@ -270,13 +318,44 @@ export async function createGame() {
     scene.events.once("shutdown", cleanupWebRTC);
     scene.events.once("destroy", cleanupWebRTC);
 
+    if (networkDiagnosticsEnabled) {
+      console.info("[DIAG] Network diagnostics enabled");
+      if (typeof scene.setNetworkDiagnostics === "function") {
+        scene.setNetworkDiagnostics(true);
+      }
+      pingLogIntervalId = window.setInterval(() => {
+        console.log("[DIAG][connection]", {
+          ts: Date.now(),
+          ping: room?.connection?.ping ?? null,
+        });
+      }, 2000);
+    }
+
     
     // Bind player state listeners
     bindPlayerListeners(scene);
     
     // Listen for state changes
+    let lastStateChangeAt = 0;
     room.onStateChange((state) => {
       if (!state?.players) return;
+
+      if (networkDiagnosticsEnabled) {
+        const now = Date.now();
+        const deltaMs = lastStateChangeAt > 0 ? now - lastStateChangeAt : null;
+        lastStateChangeAt = now;
+        const snapshot = snapshotPlayers(state.players);
+
+        console.log("[DIAG][state-change]", {
+          ts: now,
+          deltaMs,
+          playerCount: Object.keys(snapshot).length,
+          players: snapshot,
+        });
+
+        // Explicit raw Colyseus state logging for backend vs frontend diagnosis.
+        console.log("[DIAG][state.players-raw]", state.players);
+      }
       
       // Update debug overlay with every state change
       scene.updateDebugOverlay();
