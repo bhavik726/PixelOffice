@@ -35,6 +35,7 @@ export default class Player {
     this.isSitting = false;
     this.isMovementLocked = false;
     this.isMoving = false;
+    this.lastMoveAxis = 'vertical';
     
     // Setup camera follow with a tight lock so POV moves directly with the character.
     this.cameraLerp = 1;
@@ -66,33 +67,22 @@ export default class Player {
       return;
     }
 
-    // Reset velocity
-    this.velocityX = 0;
-    this.velocityY = 0;
-
     // Resolve key states first so we can control movement and animation priority explicitly.
     const leftDown = this.keys.left.isDown || this.keys.a.isDown;
     const rightDown = this.keys.right.isDown || this.keys.d.isDown;
     const upDown = this.keys.up.isDown || this.keys.w.isDown;
     const downDown = this.keys.down.isDown || this.keys.s.isDown;
 
-    if (leftDown && !rightDown) {
-      this.velocityX = -this.speed;
-    } else if (rightDown && !leftDown) {
-      this.velocityX = this.speed;
-    }
+    const inputX = (rightDown ? 1 : 0) - (leftDown ? 1 : 0);
+    const inputY = (downDown ? 1 : 0) - (upDown ? 1 : 0);
 
-    if (upDown && !downDown) {
-      this.velocityY = -this.speed;
-    } else if (downDown && !upDown) {
-      this.velocityY = this.speed;
-    }
-
-    // Keep diagonal speed equal to cardinal speed.
-    if (this.velocityX !== 0 && this.velocityY !== 0) {
-      const diagonal = this.speed / Math.sqrt(2);
-      this.velocityX = this.velocityX > 0 ? diagonal : -diagonal;
-      this.velocityY = this.velocityY > 0 ? diagonal : -diagonal;
+    if (inputX === 0 && inputY === 0) {
+      this.velocityX = 0;
+      this.velocityY = 0;
+    } else {
+      const magnitude = Math.hypot(inputX, inputY);
+      this.velocityX = (inputX / magnitude) * this.speed;
+      this.velocityY = (inputY / magnitude) * this.speed;
     }
 
     if (this.velocityX === 0 && this.velocityY === 0) {
@@ -102,15 +92,25 @@ export default class Player {
       );
       this.isMoving = false;
     } else {
-      // Horizontal animation takes precedence for diagonal movement.
-      if (this.velocityX < 0) {
+      if (inputX !== 0 && inputY !== 0) {
+        // Keep diagonal animation stable by honoring the last dominant axis.
+        if (this.lastMoveAxis === 'horizontal') {
+          this.currentDirection = inputX < 0 ? 'left' : 'right';
+        } else {
+          this.currentDirection = inputY < 0 ? 'up' : 'down';
+        }
+      } else if (inputX < 0) {
         this.currentDirection = 'left';
-      } else if (this.velocityX > 0) {
+        this.lastMoveAxis = 'horizontal';
+      } else if (inputX > 0) {
         this.currentDirection = 'right';
-      } else if (this.velocityY < 0) {
+        this.lastMoveAxis = 'horizontal';
+      } else if (inputY < 0) {
         this.currentDirection = 'up';
-      } else if (this.velocityY > 0) {
+        this.lastMoveAxis = 'vertical';
+      } else if (inputY > 0) {
         this.currentDirection = 'down';
+        this.lastMoveAxis = 'vertical';
       }
 
       this.sprite.anims.play(`${this.characterKey}_run_${this.currentDirection}`, true);
@@ -208,7 +208,8 @@ export default class Player {
   configureCamera() {
     const camera = this.scene.cameras.main;
     camera.setBounds(0, 0, this.scene.tilemap.widthInPixels, this.scene.tilemap.heightInPixels);
-    camera.setRoundPixels(true);
+    // Avoid diagonal jitter from pixel rounding with non-integer camera movement.
+    camera.setRoundPixels(false);
     camera.startFollow(this.sprite, true, this.cameraLerp, this.cameraLerp);
     this.applyCameraZoom();
   }
