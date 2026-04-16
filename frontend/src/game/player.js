@@ -38,10 +38,10 @@ export default class Player {
     this.lastMoveAxis = 'vertical';
     this.lastMovementAt = 0;
     
-    // Setup camera follow with a tight lock so POV moves directly with the character.
-    this.cameraLerp = 1;
-    this.cameraZoomDesktop = 2.1;
-    this.cameraZoomMobile = 1.7;
+    // Use damped follow to reduce sub-pixel camera drift artifacts on text labels.
+    this.cameraLerp = 0.08;
+    this.cameraZoomDesktop = 2;
+    this.cameraZoomMobile = 1;
     this.configureCamera();
 
     this.boundResizeHandler = () => {
@@ -222,7 +222,8 @@ export default class Player {
   applyCameraZoom() {
     const camera = this.scene.cameras.main;
     const screenWidth = Number(window.innerWidth || this.scene.scale.width || 0);
-    const zoom = screenWidth <= 768 ? this.cameraZoomMobile : this.cameraZoomDesktop;
+    const rawZoom = screenWidth <= 768 ? this.cameraZoomMobile : this.cameraZoomDesktop;
+    const zoom = Math.max(1, Math.round(rawZoom));
     camera.setZoom(zoom);
   }
   

@@ -92,8 +92,16 @@ export function setupWhiteboardInteraction(scene, map, player, wboOverlay) {
   }
 
   function update() {
-    if (!player?.sprite?.active || scene?.chatInputActive || scene?.whiteboardActive) {
+    if (!player?.sprite?.active || scene?.chatInputActive) {
       hidePrompt();
+      return;
+    }
+
+    if (scene?.whiteboardActive) {
+      showPrompt('Whiteboard open: Press R to close');
+      if (Phaser.Input.Keyboard.JustDown(interactKey)) {
+        wboOverlay?.close?.();
+      }
       return;
     }
 

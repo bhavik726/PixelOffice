@@ -34,9 +34,18 @@ const entryPublicBtn = document.getElementById("entryPublicBtn");
 const entryPrivateBtn = document.getElementById("entryPrivateBtn");
 const entryStatusEl = document.getElementById("entryStatus");
 const privateWorkspaceEl = document.getElementById("privateWorkspace");
+const connectionLoaderWrap = document.getElementById("connectionLoaderWrap");
+const connectionLoaderEl = document.getElementById("connection-loader");
+const connectionBarEl = document.getElementById("connection-bar");
+const connectionStatusEl = document.getElementById("connection-status");
+
+const COLYSEUS_SERVER =
+  (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_COLYSEUS_URL) ||
+  "ws://127.0.0.1:2567";
 
 let joiningRoomBusy = false;
 let privateRoomsLoaded = false;
+let publicConnectionBusy = false;
 
 function setEntryStatus(message) {
   if (!entryStatusEl) return;
@@ -124,6 +133,148 @@ function setButtonLoading({ button, labelEl, spinnerEl, loading, label }) {
   button.disabled = loading;
   if (labelEl && label) labelEl.textContent = label;
   if (spinnerEl) spinnerEl.style.display = loading ? "inline-block" : "none";
+}
+
+function setConnectionButtonsDisabled(disabled) {
+  const controls = [entryPublicBtn, entryPrivateBtn, refreshRoomsBtn, createRoomBtn];
+  controls.forEach((el) => {
+    if (!el) return;
+    el.disabled = Boolean(disabled);
+    el.style.opacity = disabled ? "0.6" : "";
+  });
+}
+
+function setConnectionLoaderVisible(visible) {
+  if (!connectionLoaderWrap) return;
+  connectionLoaderWrap.dataset.visible = visible ? "true" : "false";
+}
+
+function setProgress(progress, text) {
+  const normalized = Math.max(0, Math.min(100, Number(progress) || 0));
+
+  if (connectionBarEl) {
+    connectionBarEl.style.width = `${normalized}%`;
+  }
+
+  if (connectionStatusEl) {
+    connectionStatusEl.textContent = String(text || "");
+  }
+
+  if (connectionLoaderEl) {
+    connectionLoaderEl.setAttribute("aria-valuenow", String(Math.round(normalized)));
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+async function waitForBackend() {
+  const startedAt = Date.now();
+  const timeoutMs = 45000;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const res = await apiFetch(`${API_BASE_URL}/rooms/public`, { method: "GET" });
+      if (res.ok) {
+        return;
+      }
+    } catch {
+      // backend still waking
+    }
+
+    const elapsed = Date.now() - startedAt;
+    const ratio = Math.min(1, elapsed / timeoutMs);
+    const stageProgress = 10 + ratio * 50;
+    setProgress(stageProgress, "Waking server (may take ~30s)");
+
+    await sleep(1200);
+  }
+
+  throw new Error("Backend is taking too long to wake up. Please try again.");
+}
+
+async function connectToColyseus() {
+  const wsUrl = COLYSEUS_SERVER.replace(/^http/i, "ws");
+
+  await new Promise((resolve, reject) => {
+    let settled = false;
+    let socket;
+
+    try {
+      socket = new WebSocket(wsUrl);
+    } catch {
+      reject(new Error("Could not open realtime connection."));
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try {
+        socket.close();
+      } catch {
+        // ignore close failure
+      }
+      reject(new Error("Realtime server did not respond."));
+    }, 7000);
+
+    socket.onopen = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      try {
+        socket.close();
+      } catch {
+        // ignore close failure
+      }
+      resolve();
+    };
+
+    socket.onerror = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      reject(new Error("Unable to connect to realtime server."));
+    };
+  });
+}
+
+async function findPublicRoom() {
+  const res = await apiFetch(`${API_BASE_URL}/rooms/public`, { method: "GET" });
+  const publics = await res.json().catch(() => []);
+
+  const publicRoom = Array.isArray(publics)
+    ? publics.find((r) => r.type === "public") || publics[0] || null
+    : null;
+
+  if (!publicRoom) {
+    throw new Error("Public lobby is not available yet. Please retry in a few seconds.");
+  }
+
+  if (!publicRoom?.id) {
+    throw new Error("Public room missing id");
+  }
+
+  return publicRoom;
+}
+
+async function joinPublicRoom(roomId) {
+  const joinRes = await apiFetch(`${API_BASE_URL}/rooms/join`, {
+    method: "POST",
+    body: JSON.stringify({ room_id: roomId }),
+  });
+  const joinData = await joinRes.json().catch(() => ({}));
+  if (!joinRes.ok) {
+    throw new Error(joinData.message || "Failed to join public lobby");
+  }
+
+  const colyseusRoomId = joinData.colyseus_room_id;
+  if (!colyseusRoomId) throw new Error("Missing colyseus_room_id from join response");
+
+  return colyseusRoomId;
 }
 
 function normalizeJoinErrorMessage(message) {
@@ -336,49 +487,44 @@ entryPrivateBtn?.addEventListener("click", () => {
 });
 
 async function connectPublicLobby() {
+  if (publicConnectionBusy) {
+    return;
+  }
+
+  publicConnectionBusy = true;
   publicConnectBtn.disabled = true;
   publicConnectSpinner.style.display = "inline-block";
+  setConnectionButtonsDisabled(true);
+  setConnectionLoaderVisible(true);
+  setProgress(10, "Waking server...");
   publicErrorEl.style.display = "none";
   publicErrorEl.textContent = "";
 
   try {
-    // 1) Find existing public room
-    const res = await apiFetch(`${API_BASE_URL}/rooms/public`, { method: "GET" });
-    const publics = await res.json().catch(() => []);
+    await waitForBackend();
 
-    let publicRoom = Array.isArray(publics)
-      ? publics.find((r) => r.type === "public") || publics[0] || null
-      : null;
+    setProgress(60, "Connecting...");
+    await connectToColyseus();
 
-    if (!publicRoom) {
-      throw new Error("Public lobby is not available yet. Please retry in a few seconds.");
-    }
+    setProgress(85, "Joining room...");
+    const publicRoom = await findPublicRoom();
+    const colyseusRoomId = await joinPublicRoom(publicRoom.id);
 
-    if (!publicRoom?.id) {
-      throw new Error("Public room missing id");
-    }
-
-    // 2) Join it
-    const joinRes = await apiFetch(`${API_BASE_URL}/rooms/join`, {
-      method: "POST",
-      body: JSON.stringify({ room_id: publicRoom.id }),
-    });
-    const joinData = await joinRes.json().catch(() => ({}));
-    if (!joinRes.ok) {
-      throw new Error(joinData.message || "Failed to join public lobby");
-    }
-
-    const colyseusRoomId = joinData.colyseus_room_id;
-    if (!colyseusRoomId) throw new Error("Missing colyseus_room_id from join response");
+    setProgress(100, "Ready");
 
     window.localStorage.setItem(COLYSEUS_ROOM_ID_STORAGE_KEY, colyseusRoomId);
+    await sleep(120);
     window.location.href = CHARACTER_SELECT_PAGE;
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     setInlineError(publicErrorEl, message);
+    setProgress(0, "");
+    setConnectionLoaderVisible(false);
   } finally {
     publicConnectBtn.disabled = false;
     publicConnectSpinner.style.display = "none";
+    setConnectionButtonsDisabled(false);
+    publicConnectionBusy = false;
   }
 }
 

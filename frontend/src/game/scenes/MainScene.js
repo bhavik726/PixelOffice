@@ -108,11 +108,105 @@ export default class MainScene extends Phaser.Scene {
     this.localCorrectionIdleDelayMs = 200;
     this.localCorrectionIgnoreDriftPx = 15;
     this.localCorrectionHardThresholdPx = 60;
-    this.localCorrectionSmoothFactor = 0.1;
+    this.localCorrectionSmoothFactor = 0.08;
+    this.nameTagYOffset = 6;
+    this.chatBubbleYOffset = 24;
+    this.nameTagUpdateThresholdPx = 1;
   }
 
   setNetworkDiagnostics(enabled) {
     this.networkDiagnosticsEnabled = Boolean(enabled);
+  }
+
+  getStableScreenPosition(x, y) {
+    const camera = this.cameras.main;
+    const screenX = (x - camera.scrollX) * camera.zoom;
+    const screenY = (y - camera.scrollY) * camera.zoom;
+
+    return {
+      x: Math.round(screenX) / camera.zoom + camera.scrollX,
+      y: Math.round(screenY) / camera.zoom + camera.scrollY,
+    };
+  }
+
+  getPlayerSpriteBySessionId(sessionId) {
+    if (sessionId === this.room?.sessionId) {
+      return this.player?.sprite || null;
+    }
+
+    return this.playerRects.get(sessionId) || null;
+  }
+
+  getNameTagY(sprite) {
+    const baseY = Number(sprite?.y) || 0;
+    const spriteHeight = Number(sprite?.displayHeight) || Number(sprite?.height) || 32;
+    return baseY - spriteHeight - this.nameTagYOffset;
+  }
+
+  getChatBubbleY(sprite) {
+    const baseY = Number(sprite?.y) || 0;
+    const spriteHeight = Number(sprite?.displayHeight) || Number(sprite?.height) || 32;
+    return baseY - spriteHeight - this.chatBubbleYOffset;
+  }
+
+  createNameTag(x, y, label) {
+    const snapped = this.getStableScreenPosition(x, y);
+    const nameTag = this.add.text(snapped.x, snapped.y, label, {
+      color: '#ffffff',
+      fontFamily: 'VT323, monospace',
+      fontSize: '16px',
+      stroke: '#000000',
+      strokeThickness: 3,
+      padding: { left: 2, right: 2, top: 1, bottom: 1 },
+    });
+    nameTag.setOrigin(0.5, 1);
+    nameTag.setDepth(1205);
+    nameTag.setResolution(1);
+    nameTag.setScrollFactor(1);
+
+    if (this.game?.renderer?.pipelines?.get('TextureTintPipeline')) {
+      nameTag.setPipeline('TextureTintPipeline');
+    }
+
+    nameTag._lastX = snapped.x;
+    nameTag._lastY = snapped.y;
+
+    return nameTag;
+  }
+
+  positionNameTag(nameTag, sprite) {
+    if (!nameTag || !sprite) {
+      return;
+    }
+
+    const snapped = this.getStableScreenPosition(sprite.x, this.getNameTagY(sprite));
+    const shouldUpdate =
+      !Number.isFinite(nameTag._lastX) ||
+      !Number.isFinite(nameTag._lastY) ||
+      Math.abs(nameTag._lastX - snapped.x) > this.nameTagUpdateThresholdPx ||
+      Math.abs(nameTag._lastY - snapped.y) > this.nameTagUpdateThresholdPx;
+
+    if (shouldUpdate) {
+      nameTag.setPosition(snapped.x, snapped.y);
+      nameTag._lastX = snapped.x;
+      nameTag._lastY = snapped.y;
+    }
+  }
+
+  positionChatBubble(textObject, sprite, fallbackX, fallbackY) {
+    if (!textObject) {
+      return null;
+    }
+
+    if (sprite) {
+      const snapped = this.getStableScreenPosition(sprite.x, this.getChatBubbleY(sprite));
+      textObject.setPosition(snapped.x, snapped.y);
+      return snapped;
+    }
+
+    const snapped = this.getStableScreenPosition(fallbackX, (Number(fallbackY) || 0) - 56);
+    textObject.setPosition(snapped.x, snapped.y);
+    return snapped;
   }
   
   /**
@@ -570,9 +664,15 @@ export default class MainScene extends Phaser.Scene {
       this.player.update();
 
       if (this.localNameText && this.player.sprite) {
-        this.localNameText.x = this.player.sprite.x;
-        this.localNameText.y = this.player.sprite.y - 38;
+        this.positionNameTag(this.localNameText, this.player.sprite);
       }
+
+      this.nameTexts.forEach((nameText, sessionId) => {
+        const sprite = this.playerRects.get(sessionId);
+        if (sprite) {
+          this.positionNameTag(nameText, sprite);
+        }
+      });
 
       this.updateChatBubbles();
       
@@ -856,21 +956,22 @@ export default class MainScene extends Phaser.Scene {
         this.localDisplayName = label;
 
         if (!this.localNameText) {
-          this.localNameText = this.add.text(localPosition.x, localPosition.y - 38, label, {
-            color: '#ffffff',
-            fontSize: '12px',
-            fontStyle: '600',
-          });
-          this.localNameText.setOrigin(0.5, 1);
-          this.localNameText.setDepth(1200);
+          const localSprite = this.player.sprite;
+          this.localNameText = this.createNameTag(
+            localSprite?.x ?? localPosition.x,
+            localSprite ? this.getNameTagY(localSprite) : localPosition.y - 38,
+            label,
+          );
         } else {
           this.localNameText.setText(label);
         }
 
-        const visualX = this.player.sprite?.x ?? localPosition.x;
-        const visualY = this.player.sprite?.y ?? localPosition.y;
-        this.localNameText.x = visualX;
-        this.localNameText.y = visualY - 38;
+        const localSprite = this.player.sprite;
+        const visualX = localSprite?.x ?? localPosition.x;
+        const visualY = localSprite?.y ?? localPosition.y;
+        if (localSprite) {
+          this.positionNameTag(this.localNameText, localSprite);
+        }
         this.syncChatBubblePosition(sessionId, visualX, visualY);
         return;
       }
@@ -879,19 +980,20 @@ export default class MainScene extends Phaser.Scene {
         const label = username || userId || sessionId.slice(0, 8);
         this.localDisplayName = label;
         if (!this.localNameText) {
-          this.localNameText = this.add.text(localPosition.x, localPosition.y - 38, label, {
-            color: '#ffffff',
-            fontSize: '12px',
-            fontStyle: '600',
-          });
-          this.localNameText.setOrigin(0.5, 1);
-          this.localNameText.setDepth(1200);
+          const localSprite = this.player.sprite;
+          this.localNameText = this.createNameTag(
+            localSprite?.x ?? localPosition.x,
+            localSprite ? this.getNameTagY(localSprite) : localPosition.y - 38,
+            label,
+          );
         } else {
           this.localNameText.setText(label);
         }
 
-        this.localNameText.x = localPosition.x;
-        this.localNameText.y = localPosition.y - 38;
+        const localSprite = this.player.sprite;
+        if (localSprite) {
+          this.positionNameTag(this.localNameText, localSprite);
+        }
         this.syncChatBubblePosition(sessionId, localPosition.x, localPosition.y);
         return;
       }
@@ -925,21 +1027,21 @@ export default class MainScene extends Phaser.Scene {
       this.localDisplayName = label;
 
       if (!this.localNameText) {
-        this.localNameText = this.add.text(targetX, targetY - 38, label, {
-          color: '#ffffff',
-          fontSize: '12px',
-          fontStyle: '600',
-        });
-        this.localNameText.setOrigin(0.5, 1);
-        this.localNameText.setDepth(1200);
+        const localSprite = this.player.sprite;
+        this.localNameText = this.createNameTag(
+          localSprite?.x ?? targetX,
+          localSprite ? this.getNameTagY(localSprite) : targetY - 38,
+          label,
+        );
       } else {
         this.localNameText.setText(label);
       }
 
       const visualX = this.player.sprite?.x ?? targetX;
       const visualY = this.player.sprite?.y ?? targetY;
-      this.localNameText.x = visualX;
-      this.localNameText.y = visualY - 38;
+      if (this.player.sprite) {
+        this.positionNameTag(this.localNameText, this.player.sprite);
+      }
 
       this.syncChatBubblePosition(sessionId, visualX, visualY);
       return;
@@ -972,11 +1074,7 @@ export default class MainScene extends Phaser.Scene {
     const label = username || userId || sessionId.slice(0, 8);
 
     if (!nameText) {
-      nameText = this.add.text(resolvedX, resolvedY - 30, label, {
-        color: '#ffffff',
-        fontSize: '12px',
-      });
-      nameText.setOrigin(0.5, 1);
+      nameText = this.createNameTag(resolvedX, resolvedY - 30, label);
       this.nameTexts.set(sessionId, nameText);
     } else {
       nameText.setText(label);
@@ -1001,8 +1099,7 @@ export default class MainScene extends Phaser.Scene {
       rect.y = resolvedY;
     }
     if (nameText) {
-      nameText.x = resolvedX;
-      nameText.y = resolvedY - 30;
+      this.positionNameTag(nameText, rect);
     }
 
     this.syncChatBubblePosition(sessionId, resolvedX, resolvedY);
@@ -1068,10 +1165,14 @@ export default class MainScene extends Phaser.Scene {
     const bubble = this.chatBubbles.get(sessionId);
     if (!bubble?.text) return;
 
-    bubble.baseX = x;
-    bubble.baseY = y;
-    bubble.text.x = x;
-    bubble.text.y = y - 56;
+    const sprite = this.getPlayerSpriteBySessionId(sessionId);
+    const positioned = this.positionChatBubble(bubble.text, sprite, x, y);
+    if (!positioned) {
+      return;
+    }
+
+    bubble.baseX = positioned.x;
+    bubble.baseY = positioned.y;
   }
 
   destroyChatBubble(sessionId) {
@@ -1096,26 +1197,30 @@ export default class MainScene extends Phaser.Scene {
 
     this.destroyChatBubble(sessionId);
 
-    const bubbleText = this.add.text(Number(baseX), Number(baseY) - 56, normalizedText, {
+    const bubbleText = this.add.text(0, 0, normalizedText, {
       color: '#f8fafc',
-      fontFamily: 'Courier New, monospace',
-      fontSize: '10px',
+      fontFamily: 'VT323, monospace',
+      fontSize: '14px',
       backgroundColor: 'rgba(10, 14, 24, 0.92)',
       padding: { left: 8, right: 8, top: 5, bottom: 5 },
       stroke: '#000000',
       strokeThickness: 2,
       align: 'center',
-      wordWrap: { width: 140, useAdvancedWrap: true },
+      wordWrap: { width: 160, useAdvancedWrap: true },
     });
     bubbleText.setOrigin(0.5, 1);
     bubbleText.setDepth(1300);
+    bubbleText.setResolution(2);
+
+    const sprite = this.getPlayerSpriteBySessionId(sessionId);
+    const positioned = this.positionChatBubble(bubbleText, sprite, Number(baseX), Number(baseY));
 
     this.chatBubbles.set(sessionId, {
       text: bubbleText,
       from,
       expiresAt: Date.now() + durationMs,
-      baseX: Number(baseX),
-      baseY: Number(baseY),
+      baseX: positioned?.x ?? Number(baseX),
+      baseY: positioned?.y ?? Number(baseY),
     });
   }
 
@@ -1132,10 +1237,15 @@ export default class MainScene extends Phaser.Scene {
       const current = this.playersMap.get(sessionId);
       const x = Number.isFinite(Number(current?.x)) ? Number(current?.x) : bubble.baseX;
       const y = Number.isFinite(Number(current?.y)) ? Number(current?.y) : bubble.baseY;
+      const sprite = this.getPlayerSpriteBySessionId(sessionId);
 
       if (bubble.text) {
-        bubble.text.x = x;
-        bubble.text.y = y - 56;
+        const positioned = this.positionChatBubble(bubble.text, sprite, x, y);
+        if (positioned) {
+          bubble.baseX = positioned.x;
+          bubble.baseY = positioned.y;
+          return;
+        }
       }
       bubble.baseX = x;
       bubble.baseY = y;

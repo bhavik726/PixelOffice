@@ -53,16 +53,6 @@ function getWhiteboardBaseUrl() {
   return window.location.origin;
 }
 
-function getWhiteboardServiceLabel(baseUrl) {
-  try {
-    const parsed = new URL(baseUrl);
-    const path = parsed.pathname && parsed.pathname !== '/' ? parsed.pathname.replace(/\/$/, '') : '';
-    return `${parsed.host}${path}`;
-  } catch {
-    return 'whiteboard service';
-  }
-}
-
 function buildWhiteboardBoardUrl(baseUrl, boardId) {
   const normalizedBaseUrl = ensureTrailingSlash(resolveAbsoluteUrl(baseUrl) || DEFAULT_LOCAL_WHITEBOARD_URL);
   return new URL(`boards/${encodeURIComponent(boardId)}`, normalizedBaseUrl).toString();
@@ -74,19 +64,21 @@ export default class WBOOverlay {
     this.root = null;
     this.overlay = null;
     this.container = null;
-    this.closeButton = null;
     this.iframe = null;
     this.isOpen = false;
     this.boardId = null;
     this.boundKeydown = null;
     this.boundOverlayClick = null;
     this.boundContainerClick = null;
-    this.boundCloseHandler = null;
+    this.boundIframeLoad = null;
+    this.boundIframeError = null;
     this.wasMovementLockedBeforeOpen = false;
     this.lastClosedAt = 0;
     this.lockedPlayer = false;
     this.whiteboardBaseUrl = getWhiteboardBaseUrl();
-    this.whiteboardServiceLabel = getWhiteboardServiceLabel(this.whiteboardBaseUrl);
+    this.loadingOverlay = null;
+    this.loadingText = null;
+    this.loadingSlowTimerId = null;
   }
 
   mount() {
@@ -104,45 +96,26 @@ export default class WBOOverlay {
     const container = document.createElement('div');
     container.className = 'wbo-container';
 
-    const header = document.createElement('div');
-    header.className = 'wbo-header';
+    const closeHint = document.createElement('div');
+    closeHint.className = 'wbo-close-hint';
+    closeHint.textContent = 'Press R to close';
 
-    const headerContent = document.createElement('div');
-    headerContent.className = 'wbo-header-content';
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'wbo-loading';
 
-    const title = document.createElement('div');
-    title.className = 'wbo-title';
-    const titleStrong = document.createElement('strong');
-    titleStrong.textContent = 'Shared Whiteboard';
-    const subtitle = document.createElement('span');
-    subtitle.textContent = 'Separate WBO service. Press Esc to close.';
-    title.append(titleStrong, subtitle);
+    const spinner = document.createElement('div');
+    spinner.className = 'wbo-spinner';
+    spinner.setAttribute('aria-hidden', 'true');
 
-    const meta = document.createElement('div');
-    meta.className = 'wbo-meta';
+    const loadingText = document.createElement('p');
+    loadingText.className = 'wbo-loading-text';
+    loadingText.textContent = 'Loading whiteboard...';
 
-    const serviceBadge = document.createElement('span');
-    serviceBadge.className = 'wbo-service-badge';
-    serviceBadge.textContent = this.whiteboardServiceLabel;
+    const loadingHint = document.createElement('p');
+    loadingHint.className = 'wbo-loading-hint';
+    loadingHint.textContent = 'If this is the first open, the server may take a few seconds to wake up.';
 
-    const statusText = document.createElement('span');
-    statusText.className = 'wbo-status';
-    statusText.textContent = 'Ready';
-
-    meta.append(serviceBadge, statusText);
-    headerContent.append(title, meta);
-
-    const closeButton = document.createElement('button');
-    closeButton.className = 'wbo-close-button';
-    closeButton.type = 'button';
-    closeButton.textContent = '✕';
-    closeButton.title = 'Close whiteboard (Esc)';
-
-    const actions = document.createElement('div');
-    actions.className = 'wbo-actions';
-    actions.append(closeButton);
-
-    header.append(headerContent, actions);
+    loadingOverlay.append(spinner, loadingText, loadingHint);
 
     const iframe = document.createElement('iframe');
     iframe.className = 'wbo-iframe';
@@ -150,29 +123,20 @@ export default class WBOOverlay {
     iframe.setAttribute('loading', 'eager');
     iframe.style.background = '#fff';
     iframe.style.pointerEvents = 'auto';
-    iframe.onload = () => {
-      if (this.isOpen && this.statusText) {
-        this.statusText.textContent = 'Ready';
-      }
+    this.boundIframeLoad = () => {
+      this.setLoadingState(false);
     };
-    iframe.onerror = () => {
-      if (this.statusText) {
-        this.statusText.textContent = 'Unavailable';
-      }
+    this.boundIframeError = () => {
+      this.setLoadingState(true, 'Whiteboard is taking longer than usual...');
       console.error('WBO failed to load');
     };
+    iframe.addEventListener('load', this.boundIframeLoad);
+    iframe.addEventListener('error', this.boundIframeError);
 
-    container.append(header, iframe);
+    container.append(iframe, loadingOverlay, closeHint);
     overlay.append(container);
     root.appendChild(overlay);
     document.body.appendChild(root);
-
-    this.boundCloseHandler = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.close();
-    };
-    closeButton.addEventListener('click', this.boundCloseHandler);
 
     this.boundOverlayClick = (event) => {
       if (event.target === overlay) {
@@ -187,7 +151,13 @@ export default class WBOOverlay {
     container.addEventListener('click', this.boundContainerClick);
 
     this.boundKeydown = (event) => {
-      if (this.isOpen && event.key === 'Escape') {
+      if (!this.isOpen) {
+        return;
+      }
+
+      const key = String(event.key || '').toLowerCase();
+      if (key === 'escape' || key === 'r') {
+        event.preventDefault();
         this.close();
       }
     };
@@ -196,12 +166,29 @@ export default class WBOOverlay {
     this.root = root;
     this.overlay = overlay;
     this.container = container;
-    this.closeButton = closeButton;
     this.iframe = iframe;
-    this.statusText = statusText;
-    this.serviceBadge = serviceBadge;
+    this.loadingOverlay = loadingOverlay;
+    this.loadingText = loadingText;
 
     return root;
+  }
+
+  setLoadingState(isLoading, message = 'Loading whiteboard...') {
+    if (!this.loadingOverlay) {
+      return;
+    }
+
+    this.loadingOverlay.classList.toggle('is-hidden', !isLoading);
+    this.loadingOverlay.setAttribute('aria-hidden', String(!isLoading));
+
+    if (this.loadingText) {
+      this.loadingText.textContent = message;
+    }
+
+    if (!isLoading && this.loadingSlowTimerId) {
+      window.clearTimeout(this.loadingSlowTimerId);
+      this.loadingSlowTimerId = null;
+    }
   }
 
   open(boardId) {
@@ -244,9 +231,15 @@ export default class WBOOverlay {
     }
 
     this.root.dataset.state = 'open';
-    if (this.statusText) {
-      this.statusText.textContent = 'Opening board...';
+    this.setLoadingState(true, 'Loading whiteboard...');
+    if (this.loadingSlowTimerId) {
+      window.clearTimeout(this.loadingSlowTimerId);
     }
+    this.loadingSlowTimerId = window.setTimeout(() => {
+      if (this.isOpen) {
+        this.setLoadingState(true, 'Waking up whiteboard service...');
+      }
+    }, 2800);
 
     // Load the configured WBO board service.
     const wboUrl = buildWhiteboardBoardUrl(this.whiteboardBaseUrl, this.boardId);
@@ -264,6 +257,11 @@ export default class WBOOverlay {
     this.root.dataset.state = 'closed';
     this.root.classList.remove('is-open');
     this.root.setAttribute('aria-hidden', 'true');
+    this.setLoadingState(true, 'Loading whiteboard...');
+    if (this.loadingSlowTimerId) {
+      window.clearTimeout(this.loadingSlowTimerId);
+      this.loadingSlowTimerId = null;
+    }
     if (this.iframe) {
       this.iframe.src = 'about:blank';
     }
@@ -281,10 +279,6 @@ export default class WBOOverlay {
     }
 
     this.lockedPlayer = false;
-
-    if (this.statusText) {
-      this.statusText.textContent = 'Ready';
-    }
 
     // Release pointer lock if WBO captured it.
     if (document.pointerLockElement && typeof document.exitPointerLock === 'function') {
@@ -312,10 +306,6 @@ export default class WBOOverlay {
   destroy() {
     this.close();
 
-    if (this.closeButton && this.boundCloseHandler) {
-      this.closeButton.removeEventListener('click', this.boundCloseHandler);
-    }
-
     if (this.overlay && this.boundOverlayClick) {
       this.overlay.removeEventListener('click', this.boundOverlayClick);
     }
@@ -324,17 +314,31 @@ export default class WBOOverlay {
       this.container.removeEventListener('click', this.boundContainerClick);
     }
 
+    if (this.iframe && this.boundIframeLoad) {
+      this.iframe.removeEventListener('load', this.boundIframeLoad);
+    }
+
+    if (this.iframe && this.boundIframeError) {
+      this.iframe.removeEventListener('error', this.boundIframeError);
+    }
+
+    if (this.loadingSlowTimerId) {
+      window.clearTimeout(this.loadingSlowTimerId);
+      this.loadingSlowTimerId = null;
+    }
+
     window.removeEventListener('keydown', this.boundKeydown);
     this.root?.remove();
     this.root = null;
     this.overlay = null;
     this.container = null;
-    this.closeButton = null;
     this.iframe = null;
-    this.statusText = null;
-    this.serviceBadge = null;
+    this.loadingOverlay = null;
+    this.loadingText = null;
     this.boundCloseHandler = null;
     this.boundOverlayClick = null;
     this.boundContainerClick = null;
+    this.boundIframeLoad = null;
+    this.boundIframeError = null;
   }
 }

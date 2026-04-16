@@ -430,6 +430,47 @@
         margin: 4px 0 12px;
       }
 
+      .connection-loader-wrap {
+        width: 260px;
+        min-height: 32px;
+        margin: 12px auto 0;
+        text-align: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 180ms ease;
+      }
+
+      .connection-loader-wrap[data-visible="true"] {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      #connection-loader {
+        width: 260px;
+        height: 8px;
+        background: #0f172a;
+        border: 2px solid #1e293b;
+        border-radius: 6px;
+        margin: 0 auto;
+        overflow: hidden;
+        box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.08) inset;
+      }
+
+      #connection-bar {
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        transition: width 0.25s steps(10, end);
+      }
+
+      #connection-status {
+        margin: 6px 0 0;
+        min-height: 12px;
+        font-size: 12px;
+        line-height: 1;
+        color: #94a3b8;
+      }
+
       .socials {
         position: fixed;
         left: 50%;
@@ -906,6 +947,13 @@
             <div class="rooms" id="roomsList"></div>
           </div>
         </section>
+      </div>
+
+      <div class="connection-loader-wrap" id="connectionLoaderWrap" data-visible="false" aria-live="polite">
+        <div id="connection-loader" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="connection-bar"></div>
+        </div>
+        <p id="connection-status"></p>
       </div>
     </div>
 
