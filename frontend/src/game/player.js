@@ -36,6 +36,7 @@ export default class Player {
     this.isMovementLocked = false;
     this.isMoving = false;
     this.lastMoveAxis = 'vertical';
+    this.lastMovementAt = 0;
     
     // Setup camera follow with a tight lock so POV moves directly with the character.
     this.cameraLerp = 1;
@@ -92,6 +93,7 @@ export default class Player {
       );
       this.isMoving = false;
     } else {
+      this.lastMovementAt = performance.now();
       if (inputX !== 0 && inputY !== 0) {
         // Keep diagonal animation stable by honoring the last dominant axis.
         if (this.lastMoveAxis === 'horizontal') {
@@ -136,6 +138,10 @@ export default class Player {
       isMoving: this.isMoving,
       isSitting: this.isSitting,
     };
+  }
+
+  wasRecentlyMoving(windowMs = 250) {
+    return this.lastMovementAt > 0 && (performance.now() - this.lastMovementAt) <= windowMs;
   }
   
   setPosition(x, y) {

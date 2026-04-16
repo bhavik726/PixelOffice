@@ -105,8 +105,10 @@ export default class MainScene extends Phaser.Scene {
     this.moveSendIntervalMs = 50;
     this.lastMoveSendAt = 0;
     this.lastMovePayload = null;
-    this.localCorrectionIdleThreshold = 22;
-    this.localCorrectionHardThreshold = 96;
+    this.localCorrectionIdleDelayMs = 200;
+    this.localCorrectionIgnoreDriftPx = 15;
+    this.localCorrectionHardThresholdPx = 60;
+    this.localCorrectionSmoothFactor = 0.1;
   }
 
   setNetworkDiagnostics(enabled) {
@@ -847,32 +849,83 @@ export default class MainScene extends Phaser.Scene {
       );
 
       const isLocallyMoving = Boolean(this.player?.isMoving);
-      const shouldCorrect =
-        drift > this.localCorrectionHardThreshold ||
-        (!isLocallyMoving && drift > this.localCorrectionIdleThreshold);
+      const recentlyMoving = Boolean(this.player?.wasRecentlyMoving?.(this.localCorrectionIdleDelayMs));
 
-      // Avoid jitter from server echo while actively moving; only reconcile aggressively when idle or drift is large.
-      if (shouldCorrect) {
-        if (this.networkDiagnosticsEnabled) {
-          console.warn('[DIAG][local-correction]', {
-            ts: Date.now(),
-            sessionId,
-            drift: Number(drift.toFixed(2)),
-            isLocallyMoving,
-            fromX: Number(localPosition.x.toFixed(2)),
-            fromY: Number(localPosition.y.toFixed(2)),
-            toX: Number(resolvedX.toFixed(2)),
-            toY: Number(resolvedY.toFixed(2)),
+      if (isLocallyMoving || recentlyMoving) {
+        const label = username || userId || sessionId.slice(0, 8);
+        this.localDisplayName = label;
+
+        if (!this.localNameText) {
+          this.localNameText = this.add.text(localPosition.x, localPosition.y - 38, label, {
+            color: '#ffffff',
+            fontSize: '12px',
+            fontStyle: '600',
           });
+          this.localNameText.setOrigin(0.5, 1);
+          this.localNameText.setDepth(1200);
+        } else {
+          this.localNameText.setText(label);
         }
-        this.player.setPosition(resolvedX, resolvedY);
+
+        const visualX = this.player.sprite?.x ?? localPosition.x;
+        const visualY = this.player.sprite?.y ?? localPosition.y;
+        this.localNameText.x = visualX;
+        this.localNameText.y = visualY - 38;
+        this.syncChatBubblePosition(sessionId, visualX, visualY);
+        return;
       }
+
+      if (drift < this.localCorrectionIgnoreDriftPx) {
+        const label = username || userId || sessionId.slice(0, 8);
+        this.localDisplayName = label;
+        if (!this.localNameText) {
+          this.localNameText = this.add.text(localPosition.x, localPosition.y - 38, label, {
+            color: '#ffffff',
+            fontSize: '12px',
+            fontStyle: '600',
+          });
+          this.localNameText.setOrigin(0.5, 1);
+          this.localNameText.setDepth(1200);
+        } else {
+          this.localNameText.setText(label);
+        }
+
+        this.localNameText.x = localPosition.x;
+        this.localNameText.y = localPosition.y - 38;
+        this.syncChatBubblePosition(sessionId, localPosition.x, localPosition.y);
+        return;
+      }
+
+      const snapCorrection = drift > this.localCorrectionHardThresholdPx;
+      const targetX = snapCorrection
+        ? resolvedX
+        : Phaser.Math.Linear(localPosition.x, resolvedX, this.localCorrectionSmoothFactor);
+      const targetY = snapCorrection
+        ? resolvedY
+        : Phaser.Math.Linear(localPosition.y, resolvedY, this.localCorrectionSmoothFactor);
+
+      if (this.networkDiagnosticsEnabled) {
+        console.warn('[DIAG][local-correction]', {
+          ts: Date.now(),
+          sessionId,
+          drift: Number(drift.toFixed(2)),
+          mode: snapCorrection ? 'hard' : 'soft',
+          isLocallyMoving,
+          recentlyMoving,
+          fromX: Number(localPosition.x.toFixed(2)),
+          fromY: Number(localPosition.y.toFixed(2)),
+          toX: Number(targetX.toFixed(2)),
+          toY: Number(targetY.toFixed(2)),
+        });
+      }
+
+      this.player.setPosition(targetX, targetY);
 
       const label = username || userId || sessionId.slice(0, 8);
       this.localDisplayName = label;
 
       if (!this.localNameText) {
-        this.localNameText = this.add.text(resolvedX, resolvedY - 38, label, {
+        this.localNameText = this.add.text(targetX, targetY - 38, label, {
           color: '#ffffff',
           fontSize: '12px',
           fontStyle: '600',
@@ -883,8 +936,8 @@ export default class MainScene extends Phaser.Scene {
         this.localNameText.setText(label);
       }
 
-      const visualX = this.player.sprite?.x ?? localPosition.x;
-      const visualY = this.player.sprite?.y ?? localPosition.y;
+      const visualX = this.player.sprite?.x ?? targetX;
+      const visualY = this.player.sprite?.y ?? targetY;
       this.localNameText.x = visualX;
       this.localNameText.y = visualY - 38;
 
