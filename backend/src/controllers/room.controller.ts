@@ -37,13 +37,16 @@ export async function createRoom(req: Request, res: Response) {
   }
 
   if (!password?.trim()) {
-    return res
-      .status(400)
-      .json({ message: 'A password is required to create a private room' });
+    return res.status(400).json({ message: 'A password is required to create a private room' });
   }
 
   try {
-    const room = await roomService.createPrivateRoom(name, description ?? '', guestId || null, password);
+    const room = await roomService.createPrivateRoom(
+      name,
+      description ?? '',
+      guestId || null,
+      password,
+    );
     logger.info('Private room created via API', {
       roomId: room.id,
       colyseusRoomId: room.colyseus_room_id,

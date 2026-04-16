@@ -1,4 +1,5 @@
 module.exports = {
+  ignorePatterns: ['dist/**'],
   parser: '@typescript-eslint/parser',
   extends: [
     'eslint:recommended',
@@ -12,6 +13,13 @@ module.exports = {
   },
   rules: {
     'prettier/prettier': 'error',
-    "@typescript-eslint/no-explicit-any": "off"
+    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+      },
+    ],
   },
 };

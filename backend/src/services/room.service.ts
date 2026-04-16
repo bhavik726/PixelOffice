@@ -173,14 +173,15 @@ async function ensureSinglePublicRoom(): Promise<Room> {
       .single();
 
     if (insertError || !insertedRoom) {
-      throw new Error(`Failed to seed default public room: ${insertError?.message || 'Unknown error'}`);
+      throw new Error(
+        `Failed to seed default public room: ${insertError?.message || 'Unknown error'}`,
+      );
     }
 
     rooms.push(insertedRoom as Room);
   }
 
-  const canonicalRoom =
-    rooms.find((room) => room.name === DEFAULT_PUBLIC_ROOM_NAME) || rooms[0];
+  const canonicalRoom = rooms.find((room) => room.name === DEFAULT_PUBLIC_ROOM_NAME) || rooms[0];
 
   const duplicateRoomIds = rooms
     .filter((room) => room.id !== canonicalRoom.id)
