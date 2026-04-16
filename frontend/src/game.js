@@ -99,6 +99,15 @@ export async function createGame() {
   // Create the Phaser game instance
   const game = new Phaser.Game(GameConfig);
   const networkDiagnosticsEnabled = isNetworkDiagnosticsEnabled();
+  const diag = (label, payload = {}) => {
+    if (!networkDiagnosticsEnabled) {
+      return;
+    }
+    console.log(`[DIAG][connectivity][${label}]`, {
+      ts: Date.now(),
+      ...payload,
+    });
+  };
   
   // Wait for the scene to be fully initialized
   await new Promise((resolve) => {
@@ -125,6 +134,11 @@ export async function createGame() {
     // Setup Colyseus connection
     const client = new Client(COLYSEUS_SERVER);
     const guestId = ensureGuestId();
+    diag("colyseus-client-created", {
+      colyseusServer: COLYSEUS_SERVER,
+      roomName: ROOM_NAME,
+      hasGuestId: Boolean(guestId),
+    });
 
     const colyseusRoomId = window.localStorage.getItem(COLYSEUS_ROOM_ID_STORAGE_KEY);
     if (!colyseusRoomId) {
@@ -145,12 +159,26 @@ export async function createGame() {
     // Join the Colyseus room
     let room;
     try {
+      diag("colyseus-join-start", {
+        roomId: colyseusRoomId,
+        guestId,
+        displayName,
+        characterKey,
+      });
       room = await client.joinById(colyseusRoomId, {
         guestId,
         displayName,
         characterKey,
       });
+      diag("colyseus-join-success", {
+        roomId: room?.id,
+        sessionId: room?.sessionId,
+      });
     } catch (roomError) {
+      diag("colyseus-join-failed", {
+        roomId: colyseusRoomId,
+        error: roomError instanceof Error ? roomError.message : String(roomError),
+      });
       console.error("Failed to join room:", roomError);
       window.localStorage.removeItem(COLYSEUS_ROOM_ID_STORAGE_KEY);
       window.location.href = "/lobby.html";
@@ -165,6 +193,18 @@ export async function createGame() {
     
     scene.room = room;
     room.onMessage('computer-zone-state', () => {});
+    room.onMessage('peer-id', (payload) => {
+      diag('colyseus-peer-id-message', {
+        fromSessionId: payload?.sessionId,
+        hasPeerId: typeof payload?.peerId === 'string' && payload.peerId.length > 0,
+      });
+    });
+    room.onError?.((code, message) => {
+      diag('colyseus-room-error', { code, message });
+    });
+    room.onLeave?.((code) => {
+      diag('colyseus-room-leave', { code });
+    });
 
     scene.chatOverlay = new ChatOverlay(scene);
     scene.chatOverlay.bindRoom(room);
@@ -179,9 +219,18 @@ export async function createGame() {
     const syncLiveMedia = (emitState = true) => {
       const stream = mediaControls.getStream();
       if (!(stream instanceof MediaStream)) {
+        diag('webrtc-sync-live-media-skip', {
+          emitState,
+          reason: 'no-local-stream',
+        });
         return false;
       }
 
+      diag('webrtc-sync-live-media', {
+        emitState,
+        audioTracks: stream.getAudioTracks?.().length || 0,
+        videoTracks: stream.getVideoTracks?.().length || 0,
+      });
       peerManager?.setLocalStream?.(stream);
       videoOverlay?.setLocalStream?.(stream);
       if (emitState) {
@@ -193,16 +242,24 @@ export async function createGame() {
 
     const setupLazyMediaBootstrap = () => {
       if (mediaBootstrapCleanup || mediaControls.getStream()) {
+        diag('webrtc-lazy-bootstrap-skip', {
+          hasCleanup: Boolean(mediaBootstrapCleanup),
+          hasStream: Boolean(mediaControls.getStream()),
+        });
         return;
       }
 
+      diag('webrtc-lazy-bootstrap-armed');
+
       const handler = async () => {
+        diag('webrtc-lazy-bootstrap-triggered');
         if (mediaControls.getStream()) {
           mediaBootstrapCleanup?.();
           return;
         }
 
         const granted = await mediaControls.getUserMedia(true);
+        diag('webrtc-lazy-bootstrap-result', { granted });
         if (!granted) {
           return;
         }
@@ -227,6 +284,7 @@ export async function createGame() {
 
     let pingLogIntervalId = null;
     const cleanupWebRTC = () => {
+      diag('webrtc-cleanup-start');
       mediaBootstrapCleanup?.();
       if (pingLogIntervalId !== null) {
         window.clearInterval(pingLogIntervalId);
@@ -242,12 +300,21 @@ export async function createGame() {
       peerManager = null;
       videoOverlay = null;
       scene.videoOverlay = null;
+      diag('webrtc-cleanup-complete');
     };
 
     const mediaReady = await mediaControls.init();
+    diag('webrtc-media-init-result', {
+      mediaReady,
+      hasStream: Boolean(mediaControls.getStream()),
+    });
 
     if (!mediaReady || !mediaControls.getStream()) {
       console.error('[game.js] CRITICAL: WebRTC media stream not available - proximity voice/video disabled');
+      diag('webrtc-media-missing', {
+        mediaReady,
+        hasStream: Boolean(mediaControls.getStream()),
+      });
       videoOverlay = new VideoOverlay(mediaControls, {
         scene,
         localProfile: {
@@ -260,6 +327,11 @@ export async function createGame() {
       });
       // Continue with null stream - ProximityManager should be disabled
     } else {
+      const stream = mediaControls.getStream();
+      diag('webrtc-media-ready', {
+        audioTracks: stream?.getAudioTracks?.().length || 0,
+        videoTracks: stream?.getVideoTracks?.().length || 0,
+      });
       videoOverlay = new VideoOverlay(mediaControls, {
         scene,
         localProfile: {
@@ -285,6 +357,12 @@ export async function createGame() {
         return;
       }
 
+      diag('colyseus-media-state-message', {
+        sessionId: payload.sessionId,
+        videoEnabled: payload.videoEnabled,
+        audioEnabled: payload.audioEnabled,
+      });
+
       videoOverlay?.updateRemoteMediaState?.(payload.sessionId, {
         videoEnabled: payload.videoEnabled,
         audioEnabled: payload.audioEnabled,
@@ -293,10 +371,15 @@ export async function createGame() {
 
     peerManager = new PeerManager(room, mediaControls.getStream(), videoOverlay, mediaControls);
     await peerManager.init();
+    diag('webrtc-peer-manager-ready', {
+      localPeerId: peerManager?.localPeerId,
+      sessionId: room?.sessionId,
+    });
     syncLiveMedia(true);
 
     proximityManager = new ProximityManager(scene, peerManager);
     proximityManager.start();
+    diag('webrtc-proximity-started');
 
     computerZoneManager = new ComputerZoneManager({
       room,
@@ -304,6 +387,7 @@ export async function createGame() {
       proximityManager,
       mediaControls,
     });
+    diag('webrtc-computer-zone-manager-ready');
     scene.computerZoneManager = computerZoneManager;
 
     const originalLeaveRoom = typeof scene.leaveRoom === "function" ? scene.leaveRoom.bind(scene) : null;

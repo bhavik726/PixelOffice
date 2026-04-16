@@ -2,6 +2,29 @@ import Peer from 'peerjs';
 import { ICE_SERVERS, PEER_CONFIG } from './webrtcConfig';
 
 const MAX_CONNECT_RETRIES = 6;
+const NETWORK_DIAG_STORAGE_KEY = 'pixel_office_net_diag';
+
+function isNetworkDiagnosticsEnabled() {
+  let queryEnabled = false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    queryEnabled =
+      params.get('netDiag') === '1' ||
+      params.get('diag') === '1' ||
+      params.get('networkDebug') === '1';
+  } catch {
+    queryEnabled = false;
+  }
+
+  let storageEnabled = false;
+  try {
+    storageEnabled = window.localStorage.getItem(NETWORK_DIAG_STORAGE_KEY) === '1';
+  } catch {
+    storageEnabled = false;
+  }
+
+  return Boolean(queryEnabled || storageEnabled);
+}
 
 function sanitizePeerId(id) {
   return String(id || '').replace(/[^0-9a-z]/gi, 'G');
@@ -23,6 +46,20 @@ export class PeerManager {
     this.incomingCalls = new Map();
     this.retryCounts = new Map();
     this.messageHandler = (message) => this.handlePeerIdMessage(message);
+    this.networkDiagnosticsEnabled = isNetworkDiagnosticsEnabled();
+  }
+
+  diag(label, payload = {}) {
+    if (!this.networkDiagnosticsEnabled) {
+      return;
+    }
+
+    console.log(`[DIAG][webrtc][PeerManager][${label}]`, {
+      ts: Date.now(),
+      sessionId: this.room?.sessionId,
+      localPeerId: this.localPeerId,
+      ...payload,
+    });
   }
 
   getSessionIdForPeer(peerId) {
@@ -45,6 +82,11 @@ export class PeerManager {
 
   setLocalStream(stream) {
     this.localStream = stream instanceof MediaStream ? stream : null;
+    this.diag('set-local-stream', {
+      hasStream: Boolean(this.localStream),
+      audioTracks: this.localStream?.getAudioTracks?.().length || 0,
+      videoTracks: this.localStream?.getVideoTracks?.().length || 0,
+    });
     void this.syncActiveCallTracks();
   }
 
@@ -71,6 +113,11 @@ export class PeerManager {
     });
 
     if (updates.length > 0) {
+      this.diag('sync-active-call-tracks', {
+        senderUpdates: updates.length,
+        activeOutgoingCalls: this.outgoingCalls.size,
+        activeIncomingCalls: this.incomingCalls.size,
+      });
       await Promise.allSettled(updates);
     }
   }
@@ -121,6 +168,9 @@ export class PeerManager {
     }
 
     this.localPeerId = sanitizePeerId(sessionId);
+    this.diag('init-start', {
+      initialLocalPeerId: this.localPeerId,
+    });
 
     // Wait for the Peer to actually be ready before proceeding
     const peerReadyPromise = new Promise((resolve, reject) => {
@@ -132,6 +182,7 @@ export class PeerManager {
       const onOpen = (peerId) => {
         cleanup();
         this.localPeerId = sanitizePeerId(peerId);
+        this.diag('peer-open', { peerId: this.localPeerId });
         this.broadcastLocalPeerId();
         resolve(peer);
       };
@@ -159,11 +210,15 @@ export class PeerManager {
 
       // Listen for calls globally
       peer.on('call', (call) => {
+        this.diag('peer-incoming-call-event', {
+          fromPeerId: call?.peer,
+        });
         this.handleIncomingCall(call);
       });
 
       peer.on('disconnected', () => {
         console.warn('[PeerManager:disconnected] PeerJS disconnected');
+        this.diag('peer-disconnected');
       });
     });
 
@@ -174,6 +229,7 @@ export class PeerManager {
       throw error;
     }
     this.room?.onMessage?.('peer-id', this.messageHandler);
+    this.diag('init-complete');
 
     this.initialized = true;
 
@@ -190,6 +246,9 @@ export class PeerManager {
     }
 
     try {
+      this.diag('broadcast-local-peer-id', {
+        peerId: this.localPeerId,
+      });
       this.room.send('peer-id', { peerId: this.localPeerId });
     } catch (error) {
       console.error('[PeerManager:broadcast] Failed to broadcast local peer id', error);
@@ -209,6 +268,10 @@ export class PeerManager {
     }
 
     const sanitizedPeerId = sanitizePeerId(peerId);
+    this.diag('peer-id-message', {
+      remoteSessionId: sessionId,
+      remotePeerId: sanitizedPeerId,
+    });
     this.sessionPeerIds.set(sessionId, sanitizedPeerId);
     this.peerIdToSessionId.set(sanitizedPeerId, sessionId);
     this.videoOverlay?.replaceStreamKey?.(sanitizedPeerId, sessionId);
@@ -270,6 +333,10 @@ export class PeerManager {
     }
 
     if (!this.shouldInitiateCall(sessionId) && attempt === 0) {
+      this.diag('connect-defer-deterministic', {
+        remoteSessionId: sessionId,
+        remotePeerId: peerId,
+      });
       // Prefer deterministic single-side dialing, but keep a fallback attempt in case
       // peer-id mapping arrives late and the initiator side misses its first call window.
       window.setTimeout(() => {
@@ -297,24 +364,52 @@ export class PeerManager {
     });
 
     if (!call) {
+      this.diag('connect-call-failed-null', {
+        remoteSessionId: sessionId,
+        remotePeerId: peerId,
+      });
       return null;
     }
+
+    this.diag('connect-call-start', {
+      remoteSessionId: sessionId,
+      remotePeerId: peerId,
+      attempt,
+      outboundAudioTracks: outboundStream.getAudioTracks?.().length || 0,
+      outboundVideoTracks: outboundStream.getVideoTracks?.().length || 0,
+    });
 
     const record = { call, stream: null, sessionId, peerId };
     this.outgoingCalls.set(peerId, record);
 
     call.on('stream', (stream) => {
       record.stream = stream;
+      this.diag('outgoing-call-stream', {
+        remoteSessionId: sessionId,
+        remotePeerId: peerId,
+        audioTracks: stream?.getAudioTracks?.().length || 0,
+        videoTracks: stream?.getVideoTracks?.().length || 0,
+      });
       this.upsertRemoteStream(peerId, stream, sessionId);
     });
 
     call.on('close', () => {
       const hadStream = Boolean(record.stream);
+      this.diag('outgoing-call-close', {
+        remoteSessionId: sessionId,
+        remotePeerId: peerId,
+        hadStream,
+      });
       this.removeRemoteStream(peerId);
       this.outgoingCalls.delete(peerId);
 
       const retryCount = this.retryCounts.get(peerId) || 0;
       if (!hadStream && retryCount < MAX_CONNECT_RETRIES && !this.destroyed) {
+        this.diag('outgoing-call-retry-scheduled', {
+          remoteSessionId: sessionId,
+          remotePeerId: peerId,
+          retryAttempt: retryCount + 1,
+        });
         this.retryCounts.set(peerId, retryCount + 1);
         window.setTimeout(() => {
           this.connectToPeer(sessionId, retryCount + 1);
@@ -327,11 +422,21 @@ export class PeerManager {
 
     call.on('error', (error) => {
       console.warn('Outgoing PeerJS call error', { sessionId, error });
+      this.diag('outgoing-call-error', {
+        remoteSessionId: sessionId,
+        remotePeerId: peerId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       this.outgoingCalls.delete(peerId);
       this.removeRemoteStream(peerId);
 
       const retryCount = this.retryCounts.get(peerId) || 0;
       if (retryCount < MAX_CONNECT_RETRIES && !this.destroyed) {
+        this.diag('outgoing-call-error-retry-scheduled', {
+          remoteSessionId: sessionId,
+          remotePeerId: peerId,
+          retryAttempt: retryCount + 1,
+        });
         this.retryCounts.set(peerId, retryCount + 1);
         window.setTimeout(() => {
           this.connectToPeer(sessionId, retryCount + 1);
@@ -348,6 +453,10 @@ export class PeerManager {
     }
 
     const peerId = sanitizePeerId(call.peer);
+    this.diag('incoming-call-start', {
+      remotePeerId: peerId,
+      metadata: call?.metadata || null,
+    });
     if (this.incomingCalls.has(peerId)) {
       call.close();
       return;
@@ -383,6 +492,12 @@ export class PeerManager {
 
     try {
       call.answer(answerStream);
+      this.diag('incoming-call-answered', {
+        remoteSessionId: sessionId,
+        remotePeerId: peerId,
+        answerAudioTracks: answerStream.getAudioTracks?.().length || 0,
+        answerVideoTracks: answerStream.getVideoTracks?.().length || 0,
+      });
     } catch (error) {
       console.warn('Failed to answer incoming PeerJS call', { peerId, error });
       this.incomingCalls.delete(peerId);
@@ -392,10 +507,20 @@ export class PeerManager {
 
     call.on('stream', (stream) => {
       record.stream = stream;
+      this.diag('incoming-call-stream', {
+        remoteSessionId: sessionId,
+        remotePeerId: peerId,
+        audioTracks: stream?.getAudioTracks?.().length || 0,
+        videoTracks: stream?.getVideoTracks?.().length || 0,
+      });
       this.upsertRemoteStream(peerId, stream, sessionId);
     });
 
     call.on('close', () => {
+      this.diag('incoming-call-close', {
+        remoteSessionId: sessionId,
+        remotePeerId: peerId,
+      });
       this.removeRemoteStream(peerId);
       this.incomingCalls.delete(peerId);
       this.retryCounts.delete(peerId);
@@ -403,6 +528,11 @@ export class PeerManager {
 
     call.on('error', (error) => {
       console.warn('Incoming PeerJS call error', { peerId, error });
+      this.diag('incoming-call-error', {
+        remoteSessionId: sessionId,
+        remotePeerId: peerId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       this.incomingCalls.delete(peerId);
       this.removeRemoteStream(peerId);
     });
@@ -410,6 +540,12 @@ export class PeerManager {
 
   disconnectFromPeer(sessionId) {
     const peerId = this.resolvePeerId(sessionId);
+    this.diag('disconnect-peer', {
+      remoteSessionId: sessionId,
+      remotePeerId: peerId,
+      hadOutgoing: this.outgoingCalls.has(peerId),
+      hadIncoming: this.incomingCalls.has(peerId),
+    });
 
     const outgoing = this.outgoingCalls.get(peerId);
     if (outgoing?.call) {
@@ -444,6 +580,10 @@ export class PeerManager {
 
   destroy() {
     this.destroyed = true;
+    this.diag('destroy-start', {
+      outgoingCalls: this.outgoingCalls.size,
+      incomingCalls: this.incomingCalls.size,
+    });
 
     const peerIds = new Set([
       ...this.outgoingCalls.keys(),
@@ -472,6 +612,7 @@ export class PeerManager {
     this.localStream = null;
     this.videoOverlay = null;
     this.mediaControls = null;
+    this.diag('destroy-complete');
   }
 }
 

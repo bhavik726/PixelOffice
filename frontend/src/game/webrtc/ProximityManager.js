@@ -75,6 +75,18 @@ export class ProximityManager {
     this.localInMeeting = null;
     this.toastElement = null;
     this.toastHideTimer = null;
+    this.networkDiagnosticsEnabled = Boolean(scene?.networkDiagnosticsEnabled);
+  }
+
+  diag(label, payload = {}) {
+    if (!this.networkDiagnosticsEnabled) {
+      return;
+    }
+
+    console.log(`[DIAG][webrtc][ProximityManager][${label}]`, {
+      ts: Date.now(),
+      ...payload,
+    });
   }
 
   ensureMeetingToast() {
@@ -166,6 +178,10 @@ export class ProximityManager {
 
     this.running = true;
     this.intervalId = window.setInterval(() => this.tick(), PROXIMITY_POLL_INTERVAL);
+    this.diag('start', {
+      pollIntervalMs: PROXIMITY_POLL_INTERVAL,
+      proximityRadius: PROXIMITY_RADIUS,
+    });
     this.tick();
   }
 
@@ -190,6 +206,11 @@ export class ProximityManager {
       this.tickCount++;
       if (this.tickCount === 4) {
         console.warn('[ProximityManager:tick] Missing localSprite or peerManager after multiple ticks', {
+          hasSprite: !!localSprite,
+          hasPeerManager: !!this.peerManager,
+          playerExists: !!this.scene?.player,
+        });
+        this.diag('tick-missing-dependencies', {
           hasSprite: !!localSprite,
           hasPeerManager: !!this.peerManager,
           playerExists: !!this.scene?.player,
@@ -251,13 +272,32 @@ export class ProximityManager {
 
       if (isolateComputerZone) {
         if (connected) {
+          this.diag('disconnect-isolated-computer-zone', {
+            remoteSessionId: sessionId,
+            localInComputerZone,
+            remoteInComputerZone,
+            distance: Number(distance.toFixed(2)),
+          });
           this.peerManager.disconnectFromPeer(sessionId);
         }
       } else if (bothInMeeting || distance < PROXIMITY_RADIUS) {
         if (!connected) {
+          this.diag('connect-peer', {
+            remoteSessionId: sessionId,
+            distance: Number(distance.toFixed(2)),
+            bothInMeeting,
+            localInMeeting,
+            remoteInMeeting,
+          });
           this.peerManager.connectToPeer(sessionId);
         }
       } else if (connected) {
+        this.diag('disconnect-out-of-range', {
+          remoteSessionId: sessionId,
+          distance: Number(distance.toFixed(2)),
+          proximityRadius: PROXIMITY_RADIUS,
+          bothInMeeting,
+        });
         this.peerManager.disconnectFromPeer(sessionId);
       }
 
@@ -271,6 +311,9 @@ export class ProximityManager {
     const connectedSessions = this.peerManager.getConnectedSessionIds?.() || new Set();
     connectedSessions.forEach((sessionId) => {
       if (sessionId && sessionId !== localSessionId && !seenSessions.has(sessionId)) {
+        this.diag('disconnect-missing-player-state', {
+          remoteSessionId: sessionId,
+        });
         this.peerManager.disconnectFromPeer(sessionId);
       }
     });
@@ -283,10 +326,12 @@ export class ProximityManager {
     }
 
     this.running = false;
+    this.diag('stop');
   }
 
   pause(disconnectExisting = true) {
     this.paused = true;
+    this.diag('pause', { disconnectExisting });
 
     if (!disconnectExisting || !this.peerManager) {
       return;
@@ -300,10 +345,12 @@ export class ProximityManager {
 
   resume() {
     this.paused = false;
+    this.diag('resume');
     this.tick();
   }
 
   destroy() {
+    this.diag('destroy');
     this.stop();
     if (this.toastHideTimer) {
       window.clearTimeout(this.toastHideTimer);
