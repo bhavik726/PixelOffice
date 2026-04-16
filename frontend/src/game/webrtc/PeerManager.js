@@ -2,6 +2,8 @@ import Peer from 'peerjs';
 import { ICE_SERVERS, PEER_CONFIG } from './webrtcConfig';
 
 const MAX_CONNECT_RETRIES = 6;
+const STREAM_ESTABLISH_TIMEOUT_MS = 6000;
+const CONNECT_ATTEMPT_COOLDOWN_MS = 1000;
 const NETWORK_DIAG_STORAGE_KEY = 'pixel_office_net_diag';
 
 function isNetworkDiagnosticsEnabled() {
@@ -45,6 +47,9 @@ export class PeerManager {
     this.outgoingCalls = new Map();
     this.incomingCalls = new Map();
     this.retryCounts = new Map();
+    this.connectionState = new Map();
+    this.lastConnectAttempt = new Map();
+    this.deferredConnectTimers = new Map();
     this.messageHandler = (message) => this.handlePeerIdMessage(message);
     this.networkDiagnosticsEnabled = isNetworkDiagnosticsEnabled();
   }
@@ -300,6 +305,31 @@ export class PeerManager {
     return this.outgoingCalls.has(peerId) || this.incomingCalls.has(peerId);
   }
 
+  getConnectionState(sessionId) {
+    const peerId = this.resolvePeerId(sessionId);
+    return this.connectionState.get(peerId) || 'idle';
+  }
+
+  setConnectionStateForPeer(peerId, state, onlyIfTracked = false) {
+    if (!peerId) {
+      return;
+    }
+
+    if (onlyIfTracked && !this.connectionState.has(peerId)) {
+      return;
+    }
+
+    this.connectionState.set(peerId, state);
+  }
+
+  clearConnectionStateForPeer(peerId) {
+    if (!peerId) {
+      return;
+    }
+
+    this.connectionState.delete(peerId);
+  }
+
   getActiveConnection(sessionId) {
     const peerId = this.resolvePeerId(sessionId);
     return this.outgoingCalls.get(peerId) || this.incomingCalls.get(peerId) || null;
@@ -332,24 +362,46 @@ export class PeerManager {
       return null;
     }
 
+    const state = this.connectionState.get(peerId) || 'idle';
+    if (state === 'connecting' || state === 'connected') {
+      return this.getActiveConnection(sessionId);
+    }
+
+    const now = Date.now();
+    const lastAttempt = this.lastConnectAttempt.get(peerId) || 0;
+    if (now - lastAttempt < CONNECT_ATTEMPT_COOLDOWN_MS) {
+      return this.getActiveConnection(sessionId);
+    }
+
     if (!this.shouldInitiateCall(sessionId) && attempt === 0) {
+      if (this.deferredConnectTimers.has(peerId)) {
+        return this.getActiveConnection(sessionId);
+      }
+
+      this.lastConnectAttempt.set(peerId, now);
       this.diag('connect-defer-deterministic', {
         remoteSessionId: sessionId,
         remotePeerId: peerId,
       });
+
       // Prefer deterministic single-side dialing, but keep a fallback attempt in case
       // peer-id mapping arrives late and the initiator side misses its first call window.
-      window.setTimeout(() => {
+      const timerId = window.setTimeout(() => {
+        this.deferredConnectTimers.delete(peerId);
         if (!this.isConnected(sessionId) && !this.destroyed) {
           this.connectToPeer(sessionId, 1);
         }
       }, 350);
+      this.deferredConnectTimers.set(peerId, timerId);
       return this.getActiveConnection(sessionId);
     }
 
     if (this.outgoingCalls.has(peerId) || this.incomingCalls.has(peerId)) {
       return this.getActiveConnection(sessionId);
     }
+
+    this.lastConnectAttempt.set(peerId, now);
+    this.setConnectionStateForPeer(peerId, 'connecting');
 
     const outboundStream = this.getOutboundStream();
 
@@ -364,6 +416,7 @@ export class PeerManager {
     });
 
     if (!call) {
+      this.setConnectionStateForPeer(peerId, 'idle', true);
       this.diag('connect-call-failed-null', {
         remoteSessionId: sessionId,
         remotePeerId: peerId,
@@ -382,8 +435,35 @@ export class PeerManager {
     const record = { call, stream: null, sessionId, peerId };
     this.outgoingCalls.set(peerId, record);
 
+    record.streamTimeoutId = window.setTimeout(() => {
+      if (this.destroyed) {
+        return;
+      }
+      const current = this.outgoingCalls.get(peerId);
+      if (!current || current.stream) {
+        return;
+      }
+
+      this.diag('outgoing-call-stream-timeout', {
+        remoteSessionId: sessionId,
+        remotePeerId: peerId,
+        timeoutMs: STREAM_ESTABLISH_TIMEOUT_MS,
+      });
+
+      try {
+        current.call?.close?.();
+      } catch {
+        // Ignore close errors while recovering stale calls.
+      }
+    }, STREAM_ESTABLISH_TIMEOUT_MS);
+
     call.on('stream', (stream) => {
       record.stream = stream;
+      this.setConnectionStateForPeer(peerId, 'connected', true);
+      if (record.streamTimeoutId) {
+        window.clearTimeout(record.streamTimeoutId);
+        record.streamTimeoutId = null;
+      }
       this.diag('outgoing-call-stream', {
         remoteSessionId: sessionId,
         remotePeerId: peerId,
@@ -395,6 +475,11 @@ export class PeerManager {
 
     call.on('close', () => {
       const hadStream = Boolean(record.stream);
+      this.setConnectionStateForPeer(peerId, 'idle', true);
+      if (record.streamTimeoutId) {
+        window.clearTimeout(record.streamTimeoutId);
+        record.streamTimeoutId = null;
+      }
       this.diag('outgoing-call-close', {
         remoteSessionId: sessionId,
         remotePeerId: peerId,
@@ -422,6 +507,11 @@ export class PeerManager {
 
     call.on('error', (error) => {
       console.warn('Outgoing PeerJS call error', { sessionId, error });
+      this.setConnectionStateForPeer(peerId, 'idle', true);
+      if (record.streamTimeoutId) {
+        window.clearTimeout(record.streamTimeoutId);
+        record.streamTimeoutId = null;
+      }
       this.diag('outgoing-call-error', {
         remoteSessionId: sessionId,
         remotePeerId: peerId,
@@ -462,6 +552,8 @@ export class PeerManager {
       return;
     }
 
+    this.setConnectionStateForPeer(peerId, 'connecting');
+
     // If there is an outgoing call race, prefer the incoming call and replace the outgoing one.
     const outgoing = this.outgoingCalls.get(peerId);
     if (outgoing?.call) {
@@ -483,6 +575,28 @@ export class PeerManager {
     const record = { call, stream: null, sessionId, peerId };
     this.incomingCalls.set(peerId, record);
 
+    record.streamTimeoutId = window.setTimeout(() => {
+      if (this.destroyed) {
+        return;
+      }
+      const current = this.incomingCalls.get(peerId);
+      if (!current || current.stream) {
+        return;
+      }
+
+      this.diag('incoming-call-stream-timeout', {
+        remoteSessionId: sessionId,
+        remotePeerId: peerId,
+        timeoutMs: STREAM_ESTABLISH_TIMEOUT_MS,
+      });
+
+      try {
+        current.call?.close?.();
+      } catch {
+        // Ignore close errors while recovering stale calls.
+      }
+    }, STREAM_ESTABLISH_TIMEOUT_MS);
+
     if (typeof call.metadata?.videoEnabled === 'boolean' || typeof call.metadata?.audioEnabled === 'boolean') {
       this.videoOverlay?.updateRemoteMediaState?.(sessionId, {
         videoEnabled: call.metadata?.videoEnabled,
@@ -500,6 +614,7 @@ export class PeerManager {
       });
     } catch (error) {
       console.warn('Failed to answer incoming PeerJS call', { peerId, error });
+      this.setConnectionStateForPeer(peerId, 'idle', true);
       this.incomingCalls.delete(peerId);
       call.close();
       return;
@@ -507,6 +622,11 @@ export class PeerManager {
 
     call.on('stream', (stream) => {
       record.stream = stream;
+      this.setConnectionStateForPeer(peerId, 'connected', true);
+      if (record.streamTimeoutId) {
+        window.clearTimeout(record.streamTimeoutId);
+        record.streamTimeoutId = null;
+      }
       this.diag('incoming-call-stream', {
         remoteSessionId: sessionId,
         remotePeerId: peerId,
@@ -517,6 +637,11 @@ export class PeerManager {
     });
 
     call.on('close', () => {
+      this.setConnectionStateForPeer(peerId, 'idle', true);
+      if (record.streamTimeoutId) {
+        window.clearTimeout(record.streamTimeoutId);
+        record.streamTimeoutId = null;
+      }
       this.diag('incoming-call-close', {
         remoteSessionId: sessionId,
         remotePeerId: peerId,
@@ -528,6 +653,11 @@ export class PeerManager {
 
     call.on('error', (error) => {
       console.warn('Incoming PeerJS call error', { peerId, error });
+      this.setConnectionStateForPeer(peerId, 'idle', true);
+      if (record.streamTimeoutId) {
+        window.clearTimeout(record.streamTimeoutId);
+        record.streamTimeoutId = null;
+      }
       this.diag('incoming-call-error', {
         remoteSessionId: sessionId,
         remotePeerId: peerId,
@@ -548,18 +678,33 @@ export class PeerManager {
     });
 
     const outgoing = this.outgoingCalls.get(peerId);
+    if (outgoing?.streamTimeoutId) {
+      window.clearTimeout(outgoing.streamTimeoutId);
+      outgoing.streamTimeoutId = null;
+    }
     if (outgoing?.call) {
       outgoing.call.close();
     }
     this.outgoingCalls.delete(peerId);
 
     const incoming = this.incomingCalls.get(peerId);
+    if (incoming?.streamTimeoutId) {
+      window.clearTimeout(incoming.streamTimeoutId);
+      incoming.streamTimeoutId = null;
+    }
     if (incoming?.call) {
       incoming.call.close();
     }
     this.incomingCalls.delete(peerId);
 
     this.retryCounts.delete(peerId);
+    this.lastConnectAttempt.delete(peerId);
+    const deferredTimer = this.deferredConnectTimers.get(peerId);
+    if (deferredTimer) {
+      window.clearTimeout(deferredTimer);
+      this.deferredConnectTimers.delete(peerId);
+    }
+    this.clearConnectionStateForPeer(peerId);
     this.removeRemoteStream(peerId);
     return true;
   }
@@ -591,6 +736,16 @@ export class PeerManager {
     ]);
 
     peerIds.forEach((peerId) => {
+      const outgoing = this.outgoingCalls.get(peerId);
+      if (outgoing?.streamTimeoutId) {
+        window.clearTimeout(outgoing.streamTimeoutId);
+        outgoing.streamTimeoutId = null;
+      }
+      const incoming = this.incomingCalls.get(peerId);
+      if (incoming?.streamTimeoutId) {
+        window.clearTimeout(incoming.streamTimeoutId);
+        incoming.streamTimeoutId = null;
+      }
       this.outgoingCalls.get(peerId)?.call?.close();
       this.incomingCalls.get(peerId)?.call?.close();
     });
@@ -600,6 +755,12 @@ export class PeerManager {
     this.sessionPeerIds.clear();
     this.peerIdToSessionId.clear();
     this.retryCounts.clear();
+    this.connectionState.clear();
+    this.lastConnectAttempt.clear();
+    this.deferredConnectTimers.forEach((timerId) => {
+      window.clearTimeout(timerId);
+    });
+    this.deferredConnectTimers.clear();
 
     try {
       this.peer?.destroy?.();

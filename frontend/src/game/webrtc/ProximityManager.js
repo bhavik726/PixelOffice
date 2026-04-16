@@ -1,4 +1,8 @@
-import { PROXIMITY_POLL_INTERVAL, PROXIMITY_RADIUS } from './webrtcConfig';
+import {
+  CONNECT_RADIUS,
+  DISCONNECT_RADIUS,
+  PROXIMITY_POLL_INTERVAL,
+} from './webrtcConfig';
 
 function getDistance(ax, ay, bx, by) {
   return Math.hypot(ax - bx, ay - by);
@@ -180,7 +184,8 @@ export class ProximityManager {
     this.intervalId = window.setInterval(() => this.tick(), PROXIMITY_POLL_INTERVAL);
     this.diag('start', {
       pollIntervalMs: PROXIMITY_POLL_INTERVAL,
-      proximityRadius: PROXIMITY_RADIUS,
+      connectRadius: CONNECT_RADIUS,
+      disconnectRadius: DISCONNECT_RADIUS,
     });
     this.tick();
   }
@@ -264,6 +269,7 @@ export class ProximityManager {
       }
 
       const distance = getDistance(localX, localY, remoteX, remoteY);
+      const connectionState = this.peerManager.getConnectionState?.(sessionId) || 'idle';
       const connected = this.peerManager.isConnected(sessionId);
       const remoteInMeeting = this.isInsideMeeting(remoteX, remoteY);
       const bothInMeeting = localInMeeting && remoteInMeeting;
@@ -271,7 +277,7 @@ export class ProximityManager {
       const isolateComputerZone = localInComputerZone || remoteInComputerZone;
 
       if (isolateComputerZone) {
-        if (connected) {
+        if (connected || connectionState === 'connecting') {
           this.diag('disconnect-isolated-computer-zone', {
             remoteSessionId: sessionId,
             localInComputerZone,
@@ -280,8 +286,8 @@ export class ProximityManager {
           });
           this.peerManager.disconnectFromPeer(sessionId);
         }
-      } else if (bothInMeeting || distance < PROXIMITY_RADIUS) {
-        if (!connected) {
+      } else if (bothInMeeting || distance < CONNECT_RADIUS) {
+        if (!connected && connectionState !== 'connecting') {
           this.diag('connect-peer', {
             remoteSessionId: sessionId,
             distance: Number(distance.toFixed(2)),
@@ -291,11 +297,12 @@ export class ProximityManager {
           });
           this.peerManager.connectToPeer(sessionId);
         }
-      } else if (connected) {
+      } else if (distance > DISCONNECT_RADIUS && (connected || connectionState === 'connecting')) {
         this.diag('disconnect-out-of-range', {
           remoteSessionId: sessionId,
           distance: Number(distance.toFixed(2)),
-          proximityRadius: PROXIMITY_RADIUS,
+          connectRadius: CONNECT_RADIUS,
+          disconnectRadius: DISCONNECT_RADIUS,
           bothInMeeting,
         });
         this.peerManager.disconnectFromPeer(sessionId);
@@ -303,7 +310,7 @@ export class ProximityManager {
 
       const videoElement = this.peerManager.videoOverlay?.getVideoElement?.(sessionId);
       if (videoElement) {
-        const volume = smoothFalloff(distance, PROXIMITY_RADIUS);
+        const volume = smoothFalloff(distance, DISCONNECT_RADIUS);
         videoElement.volume = connected && !isolateComputerZone ? (bothInMeeting ? 1 : volume) : 0;
       }
     });
