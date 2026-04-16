@@ -78,6 +78,7 @@ export default class WBOOverlay {
     this.whiteboardBaseUrl = getWhiteboardBaseUrl();
     this.loadingOverlay = null;
     this.loadingText = null;
+    this.closeHint = null;
     this.loadingSlowTimerId = null;
   }
 
@@ -109,13 +110,9 @@ export default class WBOOverlay {
 
     const loadingText = document.createElement('p');
     loadingText.className = 'wbo-loading-text';
-    loadingText.textContent = 'Loading whiteboard...';
+    loadingText.textContent = 'Opening whiteboard...';
 
-    const loadingHint = document.createElement('p');
-    loadingHint.className = 'wbo-loading-hint';
-    loadingHint.textContent = 'If this is the first open, the server may take a few seconds to wake up.';
-
-    loadingOverlay.append(spinner, loadingText, loadingHint);
+    loadingOverlay.append(spinner, loadingText);
 
     const iframe = document.createElement('iframe');
     iframe.className = 'wbo-iframe';
@@ -169,11 +166,12 @@ export default class WBOOverlay {
     this.iframe = iframe;
     this.loadingOverlay = loadingOverlay;
     this.loadingText = loadingText;
+    this.closeHint = closeHint;
 
     return root;
   }
 
-  setLoadingState(isLoading, message = 'Loading whiteboard...') {
+  setLoadingState(isLoading, message = 'Opening whiteboard...') {
     if (!this.loadingOverlay) {
       return;
     }
@@ -183,6 +181,10 @@ export default class WBOOverlay {
 
     if (this.loadingText) {
       this.loadingText.textContent = message;
+    }
+
+    if (this.closeHint) {
+      this.closeHint.style.display = isLoading ? 'none' : 'block';
     }
 
     if (!isLoading && this.loadingSlowTimerId) {
@@ -231,15 +233,7 @@ export default class WBOOverlay {
     }
 
     this.root.dataset.state = 'open';
-    this.setLoadingState(true, 'Loading whiteboard...');
-    if (this.loadingSlowTimerId) {
-      window.clearTimeout(this.loadingSlowTimerId);
-    }
-    this.loadingSlowTimerId = window.setTimeout(() => {
-      if (this.isOpen) {
-        this.setLoadingState(true, 'Waking up whiteboard service...');
-      }
-    }, 2800);
+    this.setLoadingState(true, 'Opening whiteboard...');
 
     // Load the configured WBO board service.
     const wboUrl = buildWhiteboardBoardUrl(this.whiteboardBaseUrl, this.boardId);
@@ -257,7 +251,7 @@ export default class WBOOverlay {
     this.root.dataset.state = 'closed';
     this.root.classList.remove('is-open');
     this.root.setAttribute('aria-hidden', 'true');
-    this.setLoadingState(true, 'Loading whiteboard...');
+    this.setLoadingState(true, 'Opening whiteboard...');
     if (this.loadingSlowTimerId) {
       window.clearTimeout(this.loadingSlowTimerId);
       this.loadingSlowTimerId = null;
