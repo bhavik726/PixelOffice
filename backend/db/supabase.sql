@@ -71,6 +71,31 @@ create unique index if not exists idx_rooms_colyseus_room_id_unique
   on public.rooms(colyseus_room_id)
   where colyseus_room_id is not null;
 
+-- ============================================================================
+-- SECURITY HARDENING (RLS + least-privilege client access)
+-- ----------------------------------------------------------------------------
+-- Why this is safe for current app behavior:
+-- - Backend uses SUPABASE_SERVICE_ROLE_KEY, which bypasses RLS.
+-- - So enabling RLS here does NOT break backend reads/writes.
+-- - Direct client (anon/authenticated) access is reduced to read-only public rooms.
+-- ============================================================================
+
+alter table if exists public.rooms enable row level security;
+
+-- Reset policies idempotently for repeatable migrations.
+drop policy if exists rooms_public_read on public.rooms;
+
+-- Only allow direct client reads of public rooms.
+create policy rooms_public_read
+  on public.rooms
+  for select
+  to anon, authenticated
+  using (type = 'public');
+
+-- Least privilege at table level for client roles.
+revoke all on table public.rooms from anon, authenticated;
+grant select on table public.rooms to anon, authenticated;
+
 commit;
 
 -- ============================================================================
