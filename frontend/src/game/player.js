@@ -208,8 +208,7 @@ export default class Player {
   configureCamera() {
     const camera = this.scene.cameras.main;
     camera.setBounds(0, 0, this.scene.tilemap.widthInPixels, this.scene.tilemap.heightInPixels);
-    // Avoid diagonal jitter from pixel rounding with non-integer camera movement.
-    camera.setRoundPixels(false);
+    camera.setRoundPixels(true);
     camera.startFollow(this.sprite, true, this.cameraLerp, this.cameraLerp);
     this.applyCameraZoom();
   }

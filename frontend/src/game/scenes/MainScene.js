@@ -102,6 +102,11 @@ export default class MainScene extends Phaser.Scene {
     this.diagRenderMaxDeltaMs = 0;
     this.diagMoveSendCount = 0;
     this.diagLastCameraLogAt = 0;
+    this.moveSendIntervalMs = 50;
+    this.lastMoveSendAt = 0;
+    this.lastMovePayload = null;
+    this.localCorrectionIdleThreshold = 22;
+    this.localCorrectionHardThreshold = 96;
   }
 
   setNetworkDiagnostics(enabled) {
@@ -569,19 +574,39 @@ export default class MainScene extends Phaser.Scene {
 
       this.updateChatBubbles();
       
-      // Send player position to Colyseus server if connected
+      // Send movement snapshots at a fixed network tick instead of every render frame.
       if (this.room) {
+        const now = performance.now();
         const sync = this.player.getSyncState();
-        if (this.networkDiagnosticsEnabled) {
-          this.diagMoveSendCount += 1;
-        }
-        this.room.send('move', { 
-          x: Math.round(sync.x), 
+        const nextPayload = {
+          x: Math.round(sync.x),
           y: Math.round(sync.y),
           direction: sync.direction,
           isMoving: sync.isMoving,
           isSitting: sync.isSitting,
-        });
+        };
+
+        const lastPayload = this.lastMovePayload;
+        const payloadChanged =
+          !lastPayload ||
+          lastPayload.x !== nextPayload.x ||
+          lastPayload.y !== nextPayload.y ||
+          lastPayload.direction !== nextPayload.direction ||
+          lastPayload.isMoving !== nextPayload.isMoving ||
+          lastPayload.isSitting !== nextPayload.isSitting;
+
+        const sinceLastSend = now - this.lastMoveSendAt;
+        const due = sinceLastSend >= this.moveSendIntervalMs;
+        const heartbeatDue = sinceLastSend >= 250;
+
+        if (due && (payloadChanged || heartbeatDue)) {
+          this.room.send('move', nextPayload);
+          this.lastMoveSendAt = now;
+          this.lastMovePayload = nextPayload;
+          if (this.networkDiagnosticsEnabled) {
+            this.diagMoveSendCount += 1;
+          }
+        }
       }
 
       if (this.networkDiagnosticsEnabled && this.player?.sprite) {
@@ -821,13 +846,19 @@ export default class MainScene extends Phaser.Scene {
         resolvedY,
       );
 
-      // Avoid jitter from constant server echo corrections; only hard-correct when drift is meaningful.
-      if (drift > 28) {
+      const isLocallyMoving = Boolean(this.player?.isMoving);
+      const shouldCorrect =
+        drift > this.localCorrectionHardThreshold ||
+        (!isLocallyMoving && drift > this.localCorrectionIdleThreshold);
+
+      // Avoid jitter from server echo while actively moving; only reconcile aggressively when idle or drift is large.
+      if (shouldCorrect) {
         if (this.networkDiagnosticsEnabled) {
           console.warn('[DIAG][local-correction]', {
             ts: Date.now(),
             sessionId,
             drift: Number(drift.toFixed(2)),
+            isLocallyMoving,
             fromX: Number(localPosition.x.toFixed(2)),
             fromY: Number(localPosition.y.toFixed(2)),
             toX: Number(resolvedX.toFixed(2)),
@@ -852,10 +883,12 @@ export default class MainScene extends Phaser.Scene {
         this.localNameText.setText(label);
       }
 
-      this.localNameText.x = resolvedX;
-      this.localNameText.y = resolvedY - 38;
+      const visualX = this.player.sprite?.x ?? localPosition.x;
+      const visualY = this.player.sprite?.y ?? localPosition.y;
+      this.localNameText.x = visualX;
+      this.localNameText.y = visualY - 38;
 
-      this.syncChatBubblePosition(sessionId, resolvedX, resolvedY);
+      this.syncChatBubblePosition(sessionId, visualX, visualY);
       return;
     }
 
