@@ -4,7 +4,7 @@ dotenv.config();
 export const env = {
   PORT: process.env.PORT || '4000',
   HOST: process.env.HOST || '0.0.0.0',
-  SERVER_URL: process.env.SERVER_URL || 'ws://127.0.0.1:4000',
+  SERVER_URL: process.env.SERVER_URL || 'wss://your-domain.com',
   ROOM_INACTIVITY_TIMEOUT_MS: process.env.ROOM_INACTIVITY_TIMEOUT_MS || '300000',
   NETWORK_DIAGNOSTICS: process.env.NETWORK_DIAGNOSTICS || '0',
   SUPABASE_URL: process.env.SUPABASE_URL || '',

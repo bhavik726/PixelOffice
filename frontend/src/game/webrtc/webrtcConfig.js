@@ -2,12 +2,52 @@ export const CONNECT_RADIUS = 120;
 export const DISCONNECT_RADIUS = 140;
 export const PROXIMITY_RADIUS = CONNECT_RADIUS;
 export const PROXIMITY_POLL_INTERVAL = 200;
-export const PEER_CONFIG = { host: '0.peerjs.com', port: 443, secure: true };
-export const ICE_SERVERS = [
-	{ urls: 'stun:stun.l.google.com:19302' },
-	{
-		urls: 'turn:openrelay.metered.ca:80',
-		username: 'openrelayproject',
-		credential: 'openrelayproject',
-	},
-];
+
+const env = (typeof import.meta !== 'undefined' && import.meta.env) || {};
+
+function toNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toBoolean(value, fallback) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === '1' || normalized === 'true' || normalized === 'yes') {
+      return true;
+    }
+    if (normalized === '0' || normalized === 'false' || normalized === 'no') {
+      return false;
+    }
+  }
+
+  return fallback;
+}
+
+export const PEER_CONFIG = {
+  host: env.VITE_PEER_HOST || '127.0.0.1',
+  port: toNumber(env.VITE_PEER_PORT, 9000),
+  path: env.VITE_PEER_PATH || '/peerjs',
+  secure: toBoolean(env.VITE_PEER_SECURE, false),
+};
+
+const stunUrl = env.VITE_STUN_URL || 'stun:stun.l.google.com:19302';
+const turnUrl = env.VITE_TURN_URL || '';
+const turnUsername = env.VITE_TURN_USERNAME || '';
+const turnCredential = env.VITE_TURN_CREDENTIAL || '';
+
+const iceServers = [{ urls: stunUrl }];
+
+if (turnUrl && turnUsername && turnCredential) {
+  iceServers.push({
+    urls: turnUrl,
+    username: turnUsername,
+    credential: turnCredential,
+  });
+}
+
+export const ICE_SERVERS = iceServers;

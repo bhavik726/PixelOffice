@@ -29,6 +29,7 @@ function readLayerIntProperty(layer, name) {
 }
 
 const MEETING_TOAST_STYLE_ID = 'meeting-mode-toast-style';
+const DISCONNECT_DELAY = 500;
 
 function ensureMeetingToastStyles() {
   if (document.getElementById(MEETING_TOAST_STYLE_ID)) {
@@ -79,7 +80,43 @@ export class ProximityManager {
     this.localInMeeting = null;
     this.toastElement = null;
     this.toastHideTimer = null;
+    this.pendingDisconnectTimers = new Map();
     this.networkDiagnosticsEnabled = Boolean(scene?.networkDiagnosticsEnabled);
+  }
+
+  scheduleDisconnect(sessionId, payload = {}) {
+    if (!sessionId || this.pendingDisconnectTimers.has(sessionId)) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      this.pendingDisconnectTimers.delete(sessionId);
+      this.peerManager?.disconnectFromPeer?.(sessionId);
+    }, DISCONNECT_DELAY);
+
+    this.pendingDisconnectTimers.set(sessionId, timerId);
+    this.diag('disconnect-scheduled', {
+      remoteSessionId: sessionId,
+      delayMs: DISCONNECT_DELAY,
+      ...payload,
+    });
+  }
+
+  cancelScheduledDisconnect(sessionId) {
+    const timerId = this.pendingDisconnectTimers.get(sessionId);
+    if (!timerId) {
+      return;
+    }
+
+    window.clearTimeout(timerId);
+    this.pendingDisconnectTimers.delete(sessionId);
+  }
+
+  clearScheduledDisconnects() {
+    this.pendingDisconnectTimers.forEach((timerId) => {
+      window.clearTimeout(timerId);
+    });
+    this.pendingDisconnectTimers.clear();
   }
 
   diag(label, payload = {}) {
@@ -278,15 +315,16 @@ export class ProximityManager {
 
       if (isolateComputerZone) {
         if (connected || connectionState === 'connecting') {
-          this.diag('disconnect-isolated-computer-zone', {
+          this.scheduleDisconnect(sessionId, {
+            reason: 'isolated-computer-zone',
             remoteSessionId: sessionId,
             localInComputerZone,
             remoteInComputerZone,
             distance: Number(distance.toFixed(2)),
           });
-          this.peerManager.disconnectFromPeer(sessionId);
         }
       } else if (bothInMeeting || distance < CONNECT_RADIUS) {
+        this.cancelScheduledDisconnect(sessionId);
         if (!connected && connectionState !== 'connecting') {
           this.diag('connect-peer', {
             remoteSessionId: sessionId,
@@ -298,14 +336,16 @@ export class ProximityManager {
           this.peerManager.connectToPeer(sessionId);
         }
       } else if (distance > DISCONNECT_RADIUS && (connected || connectionState === 'connecting')) {
-        this.diag('disconnect-out-of-range', {
+        this.scheduleDisconnect(sessionId, {
+          reason: 'out-of-range',
           remoteSessionId: sessionId,
           distance: Number(distance.toFixed(2)),
           connectRadius: CONNECT_RADIUS,
           disconnectRadius: DISCONNECT_RADIUS,
           bothInMeeting,
         });
-        this.peerManager.disconnectFromPeer(sessionId);
+      } else {
+        this.cancelScheduledDisconnect(sessionId);
       }
 
       const videoElement = this.peerManager.videoOverlay?.getVideoElement?.(sessionId);
@@ -318,6 +358,7 @@ export class ProximityManager {
     const connectedSessions = this.peerManager.getConnectedSessionIds?.() || new Set();
     connectedSessions.forEach((sessionId) => {
       if (sessionId && sessionId !== localSessionId && !seenSessions.has(sessionId)) {
+        this.cancelScheduledDisconnect(sessionId);
         this.diag('disconnect-missing-player-state', {
           remoteSessionId: sessionId,
         });
@@ -333,6 +374,7 @@ export class ProximityManager {
     }
 
     this.running = false;
+    this.clearScheduledDisconnects();
     this.diag('stop');
   }
 
@@ -344,6 +386,7 @@ export class ProximityManager {
       return;
     }
 
+    this.clearScheduledDisconnects();
     const connectedSessions = this.peerManager.getConnectedSessionIds?.();
     connectedSessions?.forEach?.((sessionId) => {
       this.peerManager.disconnectFromPeer?.(sessionId);
@@ -363,6 +406,7 @@ export class ProximityManager {
       window.clearTimeout(this.toastHideTimer);
       this.toastHideTimer = null;
     }
+    this.clearScheduledDisconnects();
     this.toastElement?.remove();
     this.toastElement = null;
     this.scene = null;

@@ -12,9 +12,25 @@ const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
   "http://127.0.0.1:4000";
 
-const COLYSEUS_SERVER =
-  (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_COLYSEUS_URL) ||
-  API_BASE_URL.replace(/^http/i, (m) => (m.toLowerCase() === "https" ? "wss" : "ws"));
+function getColyseusServer() {
+  if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_COLYSEUS_URL) {
+    return import.meta.env.VITE_COLYSEUS_URL;
+  }
+
+  try {
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+    if (isLocal) {
+      return 'ws://127.0.0.1:4000';
+    }
+  } catch {
+    // Fall through to production default
+  }
+
+  return API_BASE_URL.replace(/^http/i, "ws");
+}
+
+const COLYSEUS_SERVER = getColyseusServer();
 const ROOM_NAME = "pixel-office";
 const COLYSEUS_ROOM_ID_STORAGE_KEY = "colyseus_room_id";
 const GUEST_ID_STORAGE_KEY = "pixel_office_guest_id";
@@ -370,16 +386,34 @@ export async function createGame() {
     });
 
     peerManager = new PeerManager(room, mediaControls.getStream(), videoOverlay, mediaControls);
-    await peerManager.init();
-    diag('webrtc-peer-manager-ready', {
-      localPeerId: peerManager?.localPeerId,
-      sessionId: room?.sessionId,
-    });
-    syncLiveMedia(true);
 
-    proximityManager = new ProximityManager(scene, peerManager);
-    proximityManager.start();
-    diag('webrtc-proximity-started');
+    let peerReady = false;
+    try {
+      await peerManager.init();
+      peerReady = true;
+      diag('webrtc-peer-manager-ready', {
+        localPeerId: peerManager?.localPeerId,
+        sessionId: room?.sessionId,
+      });
+      syncLiveMedia(true);
+    } catch (error) {
+      console.warn('Peer init failed, disabling WebRTC');
+      diag('webrtc-peer-manager-failed', {
+        error: error instanceof Error ? error.message : String(error),
+        sessionId: room?.sessionId,
+      });
+      peerManager = null;
+    }
+
+    if (peerReady && peerManager) {
+      proximityManager = new ProximityManager(scene, peerManager);
+      proximityManager.start();
+      diag('webrtc-proximity-started');
+    } else {
+      console.warn('[game.js] ProximityManager NOT started because peer failed');
+      diag('webrtc-proximity-skipped', { reason: 'PeerManager unavailable' });
+      proximityManager = new ProximityManager(scene, null);
+    }
 
     computerZoneManager = new ComputerZoneManager({
       room,

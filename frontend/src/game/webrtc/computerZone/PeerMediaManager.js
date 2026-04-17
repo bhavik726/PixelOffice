@@ -1,11 +1,4 @@
-import Peer from 'peerjs';
-import { ICE_SERVERS, PEER_CONFIG } from '../webrtcConfig';
-
-function sanitizePeerId(value) {
-  return String(value || '')
-    .trim()
-    .replace(/[^0-9a-zA-Z-_]/g, '-');
-}
+// import Peer from 'peerjs';
 
 function getCallTrack(stream) {
   if (stream instanceof MediaStream) {
@@ -16,11 +9,9 @@ function getCallTrack(stream) {
 }
 
 export class PeerMediaManager {
-  constructor(peerId) {
-    this.peer = new Peer(sanitizePeerId(peerId), {
-      ...PEER_CONFIG,
-      config: { iceServers: ICE_SERVERS },
-    });
+  constructor() {
+    this.peer = null;
+    console.warn('[PeerMediaManager] Secondary PeerJS is temporarily disabled.');
 
     this.streams = new Map();
     this.connections = new Map();
@@ -29,22 +20,7 @@ export class PeerMediaManager {
     this.onStreamReceived = () => {};
     this.onPeerDisconnected = () => {};
 
-    this.peer.on('call', (call) => {
-      const answerStream = getCallTrack(this.localStream);
-      try {
-        call.answer(answerStream);
-      } catch (error) {
-        console.warn('[PeerMediaManager] Failed to answer call', error);
-        call.close();
-        return;
-      }
-
-      this.attachCallHandlers(call);
-    });
-
-    this.peer.on('error', (error) => {
-      console.warn('[PeerMediaManager] Peer error', error);
-    });
+    // this.peer = new Peer(...)
   }
 
   getLocalPeerId() {
@@ -100,6 +76,11 @@ export class PeerMediaManager {
     }
 
     const outboundStream = getCallTrack(localStream ?? this.localStream);
+    if (!outboundStream || outboundStream.getTracks().length === 0) {
+      console.warn('No media stream available before call');
+      return;
+    }
+
     const call = this.peer.call(remotePeerId, outboundStream);
     if (!call) {
       return;
@@ -113,6 +94,10 @@ export class PeerMediaManager {
   }
 
   async getScreenStream() {
+    if (navigator.userActivation && !navigator.userActivation.isActive) {
+      throw new Error('Screen sharing must be triggered by a user interaction.');
+    }
+
     return await navigator.mediaDevices.getDisplayMedia({
       video: true,
       audio: true,

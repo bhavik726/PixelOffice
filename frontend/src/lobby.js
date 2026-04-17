@@ -39,9 +39,25 @@ const connectionLoaderEl = document.getElementById("connection-loader");
 const connectionBarEl = document.getElementById("connection-bar");
 const connectionStatusEl = document.getElementById("connection-status");
 
-const COLYSEUS_SERVER =
-  (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_COLYSEUS_URL) ||
-  "ws://127.0.0.1:2567";
+function getColyseusServer() {
+  if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_COLYSEUS_URL) {
+    return import.meta.env.VITE_COLYSEUS_URL;
+  }
+
+  try {
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+    if (isLocal) {
+      return 'ws://127.0.0.1:2567';
+    }
+  } catch {
+    // Fall through to production default
+  }
+
+  return API_BASE_URL.replace(/^http/i, "ws");
+}
+
+const COLYSEUS_SERVER = getColyseusServer();
 
 let joiningRoomBusy = false;
 let privateRoomsLoaded = false;
