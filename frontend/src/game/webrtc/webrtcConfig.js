@@ -35,19 +35,15 @@ export const PEER_CONFIG = {
   secure: toBoolean(env.VITE_PEER_SECURE, false),
 };
 
-const stunUrl = env.VITE_STUN_URL || 'stun:stun.l.google.com:19302';
-const turnUrl = env.VITE_TURN_URL || '';
-const turnUsername = env.VITE_TURN_USERNAME || '';
-const turnCredential = env.VITE_TURN_CREDENTIAL || '';
-
-const iceServers = [{ urls: stunUrl }];
-
-if (turnUrl && turnUsername && turnCredential) {
-  iceServers.push({
-    urls: turnUrl,
-    username: turnUsername,
-    credential: turnCredential,
-  });
-}
-
-export const ICE_SERVERS = iceServers;
+export const getIceServers = () => {
+  return [
+    {
+      urls: env.VITE_STUN_URL || 'stun:stun.l.google.com:19302',
+    },
+    {
+      urls: env.VITE_TURN_URL,
+      username: env.VITE_TURN_USERNAME,
+      credential: env.VITE_TURN_CREDENTIAL,
+    },
+  ];
+};
