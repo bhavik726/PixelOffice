@@ -1,13 +1,20 @@
-# PixelOffice 🏢✨
-
-*A Real-Time 2D Virtual Office Experience*
-
-<p align="center">
+<p align="right">
   <!-- 🔥 ADD YOUR LOGO HERE -->
-  <img src="frontend/public/logo.png"/>
+  <img src="frontend/public/logo.png" width="80"/>
 </p>
 
+# PixelOffice 🏢✨
+*A Real-Time 2D Virtual Office Experience*
+
 ---
+
+## 🌐 Live Experience
+
+<p align="center">
+  <a href="https://pixelofficefrontend.vercel.app/" target="_blank">
+    <b>🚀 Enter PixelOffice</b>
+  </a>
+</p>
 
 ## 🌐 Overview
 
