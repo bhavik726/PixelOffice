@@ -1,190 +1,197 @@
-# PixelOffice - 2D Multiplayer Metaverse Office
+# PixelOffice 🏢✨
 
-PixelOffice is a real-time multiplayer virtual office with room-based presence, avatar movement, chat, WebRTC proximity media, and shared whiteboard interaction.
+*A Real-Time 2D Virtual Office Experience*
 
-## Tech Stack
+<p align="center">
+  <!-- 🔥 ADD YOUR LOGO HERE -->
+  <img src="YOUR_LOGO_LINK" width="180"/>
+</p>
 
-- Frontend: Phaser 3 + Vite (JavaScript)
-- Realtime Networking: Colyseus client and server
-- Backend API/Game Server: Node.js + TypeScript + Express + Colyseus
-- Peer Signaling: PeerJS server
-- Database: Supabase (PostgreSQL)
-- Whiteboard: WBO app in a separate service
+---
 
-## Monorepo Structure
+## 🌐 Overview
 
-- `backend/` - API + Colyseus server
-- `frontend/` - Phaser client app
-- `backend/peer-server.js` - PeerJS signaling server used by WebRTC media
-- `whiteboard/` - standalone WBO app (separately deployed)
+PixelOffice is a real-time multiplayer **2D virtual office** where users can connect, interact, and collaborate in a shared digital workspace.
 
-## Prerequisites
+Choose your avatar, join rooms, walk around the office, and experience **proximity-based communication** just like real life.
 
-- Node.js 18+
-- npm 9+
-- Supabase project (URL + service role key)
-- Optional for local whiteboard service: Docker or Node.js (see `whiteboard/README.md`)
+---
 
-## Environment Variables
+## ✨ Features
 
-Backend variables are defined in `backend/.env.example`.
+### 🧍 Avatar-Based Interaction
 
-Required backend keys:
+* Choose your character and enter the virtual office
+* Move freely across the map and interact with others
 
-- `PORT` (example: `4000`)
-- `HOST` (example: `0.0.0.0`)
-- `SERVER_URL` (example: `ws://127.0.0.1:4000`)
-- `ROOM_INACTIVITY_TIMEOUT_MS` (example: `300000`)
-- `NETWORK_DIAGNOSTICS` (`0` or `1`, default `0`)
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
+<!-- 📸 ADD: Home / Avatar Selection Screenshot -->
 
-Setup:
+---
 
-1. Copy `backend/.env.example` to `backend/.env`.
-2. Fill all secret values in `backend/.env`.
-3. Do not commit `.env` files.
+### 🌍 Public & Private Rooms
 
-Frontend variables are defined in `frontend/.env.example`.
+* Create or join **public rooms**
+* Create **private rooms** for focused collaboration
 
-Setup:
+<!-- 📸 ADD: Room Selection Screenshot -->
 
-1. Copy `frontend/.env.example` to `frontend/.env`.
-2. Update values for your local or deployed services.
+---
 
-Frontend keys:
+### 📍 Proximity-Based Voice & Video
 
-- `VITE_API_BASE_URL` (defaults to `http://127.0.0.1:4000`)
-- `VITE_COLYSEUS_URL` (defaults to ws/wss derived from API base URL)
-- `VITE_WHITEBOARD_BASE_URL` (defaults to `http://127.0.0.1:8080` in local dev; set this in production when the whiteboard is deployed separately)
-- `VITE_PEER_HOST` (defaults to `127.0.0.1`)
-- `VITE_PEER_PORT` (defaults to `9000`)
-- `VITE_PEER_PATH` (defaults to `/peerjs`)
-- `VITE_PEER_SECURE` (`true` or `false`, defaults to `false`)
-- `VITE_PEER_WARMUP_URL` (optional health/warmup URL used by lobby)
-- `VITE_STUN_URL` (optional; defaults to Google STUN if empty)
-- `VITE_TURN_URL` (optional; recommended for production NAT traversal)
-- `VITE_TURN_USERNAME` (required when TURN is used)
-- `VITE_TURN_CREDENTIAL` (required when TURN is used)
+* Video/audio connects automatically when users are nearby
+* Audio strength changes based on distance
+* Moving away gradually disconnects the call
 
-## Database Setup (Supabase)
+> Real-life simulation of conversations inside a virtual space
 
-Schema file:
+<!-- 📸 ADD: Proximity Chat Screenshot -->
 
-- `backend/db/supabase.sql`
+---
 
-Run in Supabase SQL Editor or with psql:
+### 🏢 Smart Meeting Rooms
+
+* Entering a meeting room connects everyone instantly
+* Communication works regardless of distance inside the room
+* Designed for team discussions and collaboration
+
+<!-- 📸 ADD: Meeting Room Screenshot -->
+
+---
+
+### 💬 Real-Time Chat & Bubbles
+
+* Instant messaging with live chat
+* Speech bubbles appear above users
+
+<!-- 📸 ADD: Chat + Bubble Screenshot -->
+
+---
+
+### 🖥️ Screen Sharing System
+
+* Use in-game computer zones to share your screen
+* Seamless integration with video calls
+
+<!-- 📸 ADD: Screen Share Screenshot -->
+
+---
+
+### 🧠 Collaborative Whiteboard
+
+* Shared whiteboard accessible inside meeting rooms
+* Can be opened and used by anyone in the room
+
+<!-- 📸 ADD: Whiteboard Screenshot -->
+
+---
+
+### 🗺️ Interactive Office Map
+
+* Designed virtual office layout
+* Smooth movement and immersive environment
+
+<!-- 📸 ADD: Map Screenshot -->
+
+---
+
+## 🎮 Controls
+
+| Action                      | Key                           |
+| --------------------------- | ----------------------------- |
+| Move                        | `W / A / S / D` or Arrow Keys |
+| Interact                    | `E`                           |
+| Use Computer / Screen Share | `R`                           |
+| Open Chat                   | `Enter`                       |
+| Close UI                    | `ESC`                         |
+
+---
+
+## ⚙️ Tech Stack
+
+**Frontend**
+
+* Phaser 3
+* JavaScript / TypeScript
+* Vite
+
+**Backend & Realtime**
+
+* Node.js
+* Express
+* Colyseus
+
+**WebRTC & Communication**
+
+* PeerJS (for signaling)
+* STUN/TURN (for connectivity)
+
+**Database**
+
+* Supabase (PostgreSQL)
+
+**Other Integrations**
+
+* Whiteboard (WBO)
+
+---
+
+## 🏗️ Architecture
+
+* Real-time multiplayer powered by WebSockets (Colyseus)
+* Peer-to-peer media via WebRTC
+* Separate services for backend, frontend, signaling, and whiteboard
+
+---
+
+## 🚀 Getting Started
 
 ```bash
-psql "<SUPABASE_DB_URL>" -f backend/db/supabase.sql
-```
+# Clone the repository
+git clone YOUR_REPO_LINK
 
-## Local Development
-
-Run services in separate terminals.
-
-### 1) Backend
-
-```bash
-cd backend
+# Install dependencies
+cd project-folder
 npm install
+
+# Run backend
+npm run dev
+
+# Run frontend
 npm run dev
 ```
 
-Default server endpoint: `http://127.0.0.1:4000`
+---
 
-### 2) PeerJS signaling server (for voice/video)
+## 🌍 Deployment Notes
 
-From the backend folder:
+* Deploy frontend and backend separately
+* Use HTTPS & WSS in production
+* Configure STUN/TURN for stable WebRTC connections
+* Ensure PeerJS server is publicly accessible
 
-```bash
-cd backend
-node peer-server.js
-```
+---
 
-Defaults: `HOST=0.0.0.0`, `PORT=9000`, `PATH=/peerjs`
+## 🎯 Vision
 
-### 3) Frontend
+PixelOffice aims to recreate the **feeling of a real workspace** in a digital environment —
+where conversations feel natural, collaboration is seamless, and presence actually matters.
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+---
 
-Vite will print the local URL in terminal (typically `http://127.0.0.1:5173` or `http://localhost:5173`).
+## 🙌 Credits
 
-### 4) Whiteboard Service (optional, separate app)
+* Inspired by the concept and innovation behind
+  [SkyOffice by Kevin Shen](https://github.com/kevinshen56714/SkyOffice)
 
-The `whiteboard/` folder is an independent WBO application and should be deployed and managed separately from backend/frontend.
+* Map assets by
+  [LimeZu](https://limezu.itch.io/)
 
-- For local run and deployment, use instructions in `whiteboard/README.md`.
-- Ensure the whiteboard URL used by frontend is reachable from your deployed frontend.
+* Whiteboard powered by
+  [WBO (Whiteboard Open Source)](https://github.com/lovasoa/whitebophir)
 
-## Production Build and Run
+---
 
-### Backend
+## 📜 License
 
-```bash
-cd backend
-npm install
-npm run build
-npm start
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run build
-npm run preview
-```
-
-## Deployment Notes
-
-- Deploy backend and frontend as separate services.
-- Deploy PeerJS signaling as another reachable service (or alongside backend with proper routing/ports).
-- Deploy whiteboard as a separate service.
-- Confirm frontend points to the correct backend, PeerJS, and whiteboard URLs in production.
-- Ensure CORS/origin settings allow frontend -> backend and frontend -> whiteboard communication.
-- Use HTTPS/WSS in production.
-
-## Useful Scripts
-
-Backend (`backend/package.json`):
-
-- `npm run dev` - development server (ts-node-dev)
-- `npm run build` - TypeScript build
-- `npm start` - run built server from `dist/`
-- `npm run lint` - lint TypeScript source
-- `npm run format` - format files
-- `node peer-server.js` - start PeerJS signaling server (WebRTC signaling)
-
-Frontend (`frontend/package.json`):
-
-- `npm run dev` - Vite dev server
-- `npm run build` - production build
-- `npm run preview` - preview built app
-- `npm run lint` - lint frontend source
-
-## Troubleshooting
-
-- Room join fails:
-	- verify backend is running and reachable at `VITE_API_BASE_URL`.
-	- verify Colyseus endpoint (`VITE_COLYSEUS_URL`) is correct for your environment.
-	- clear stale local storage and rejoin from lobby.
-- WebRTC unavailable:
-	- allow camera/microphone permissions in browser.
-	- verify PeerJS signaling server is reachable at `VITE_PEER_HOST`/`VITE_PEER_PORT`/`VITE_PEER_PATH`.
-	- if users are behind strict NAT/firewall, configure TURN (`VITE_TURN_*`).
-	- verify HTTPS context in production.
-- Whiteboard does not open:
-	- verify `VITE_WHITEBOARD_BASE_URL` points to a reachable whiteboard deployment.
-	- verify whiteboard service is running and reachable from frontend origin.
-
-## Security Checklist
-
-- Never commit `.env` files or secret values.
-- Rotate Supabase and TURN credentials if accidentally exposed.
-- Keep service role keys only on backend.
+This project is licensed under the MIT License.
