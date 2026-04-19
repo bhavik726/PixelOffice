@@ -4,7 +4,7 @@
 
 <p align="center">
   <!-- 🔥 ADD YOUR LOGO HERE -->
-  <img src="YOUR_LOGO_LINK" width="180"/>
+  <img src="frontend/public/logo.png"/>
 </p>
 
 ---
