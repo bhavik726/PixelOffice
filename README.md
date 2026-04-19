@@ -3,9 +3,10 @@
 *A Real-Time 2D Virtual Office Experience*
 
 <p align="center">
-  <!-- 🔥 ADD YOUR LOGO HERE -->
-  <img src="frontend/public/logo.png"/>
+  <img src="frontend/public/logo.png" width="160"/>
 </p>
+
+<br/>
 
 ---
 
@@ -15,7 +16,11 @@ PixelOffice is a real-time multiplayer **2D virtual office** where users can con
 
 Choose your avatar, join rooms, walk around the office, and experience **proximity-based communication** just like real life.
 
-<img width="1919" height="871" alt="home page" src="https://github.com/user-attachments/assets/a7428c27-f8a1-43ab-99e5-9beca11b5a2b" />
+<br/>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/a7428c27-f8a1-43ab-99e5-9beca11b5a2b" width="900"/>
+</p>
 
 ---
 
@@ -25,9 +30,13 @@ Choose your avatar, join rooms, walk around the office, and experience **proximi
 
 * Choose your character and enter the virtual office
 * Move freely across the map and interact with others
-  
-  <img width="1101" height="573" alt="charcter select" src="https://github.com/user-attachments/assets/e08e05e8-435a-4936-a182-41aea813831c" />
-  <img width="1914" height="868" alt="character" src="https://github.com/user-attachments/assets/c49dc6df-5e94-4371-ac2a-08df911280e0" />
+
+<br/>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/e08e05e8-435a-4936-a182-41aea813831c" width="420"/>
+  <img src="https://github.com/user-attachments/assets/c49dc6df-5e94-4371-ac2a-08df911280e0" width="420"/>
+</p>
 
 ---
 
@@ -36,7 +45,11 @@ Choose your avatar, join rooms, walk around the office, and experience **proximi
 * Create or join **public rooms**
 * Create **private rooms** for focused collaboration
 
-<img width="467" height="796" alt="rooms" src="https://github.com/user-attachments/assets/08298bfa-94a4-4997-a90b-dc7c27bdda92" />
+<br/>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/08298bfa-94a4-4997-a90b-dc7c27bdda92" width="400"/>
+</p>
 
 ---
 
@@ -45,10 +58,15 @@ Choose your avatar, join rooms, walk around the office, and experience **proximi
 * Video/audio connects automatically when users are nearby
 * Audio strength changes based on distance
 * Moving away gradually disconnects the call
+
 > Real-life simulation of conversations inside a virtual space
 
-  <img width="1911" height="870" alt="distance " src="https://github.com/user-attachments/assets/eb066bf6-a186-4042-a18b-d88b6c607af7" />
-  <img width="1905" height="875" alt="proximity connect" src="https://github.com/user-attachments/assets/d2197c7b-011c-4e15-abe4-850097327628" />
+<br/>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/eb066bf6-a186-4042-a18b-d88b6c607af7" width="420"/>
+  <img src="https://github.com/user-attachments/assets/d2197c7b-011c-4e15-abe4-850097327628" width="420"/>
+</p>
 
 ---
 
@@ -58,8 +76,11 @@ Choose your avatar, join rooms, walk around the office, and experience **proximi
 * Communication works regardless of distance inside the room
 * Designed for team discussions and collaboration
 
-<img width="944" height="517" alt="Screenshot 2026-04-19 233612" src="https://github.com/user-attachments/assets/b442083d-cbb5-4ace-8ff9-0001de47e269" />
+<br/>
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/b442083d-cbb5-4ace-8ff9-0001de47e269" width="700"/>
+</p>
 
 ---
 
@@ -67,8 +88,12 @@ Choose your avatar, join rooms, walk around the office, and experience **proximi
 
 * Instant messaging with live chat
 * Speech bubbles appear above users
-  
-<img width="1919" height="1079" alt="chat bubble" src="https://github.com/user-attachments/assets/f4f81f16-d8ae-424c-9486-34fd47f28682" />
+
+<br/>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/f4f81f16-d8ae-424c-9486-34fd47f28682" width="850"/>
+</p>
 
 ---
 
@@ -77,7 +102,11 @@ Choose your avatar, join rooms, walk around the office, and experience **proximi
 * Use in-game computer zones to share your screen
 * Seamless integration with video calls
 
-<img width="1600" height="731" alt="screen share" src="https://github.com/user-attachments/assets/6812583d-1a84-4a3a-8132-0b9418ac196c" />
+<br/>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/6812583d-1a84-4a3a-8132-0b9418ac196c" width="800"/>
+</p>
 
 ---
 
@@ -86,9 +115,12 @@ Choose your avatar, join rooms, walk around the office, and experience **proximi
 * Shared whiteboard accessible inside meeting rooms
 * Can be opened and used by anyone in the room
 
-<img width="949" height="504" alt="whiteboard" src="https://github.com/user-attachments/assets/84a985c7-c800-4c3e-aee6-bbb24e6643cc" />
-<img width="1911" height="872" alt="board" src="https://github.com/user-attachments/assets/7fd4adf1-63d7-4b35-88c3-c0ad94ade478" />
+<br/>
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/84a985c7-c800-4c3e-aee6-bbb24e6643cc" width="420"/>
+  <img src="https://github.com/user-attachments/assets/7fd4adf1-63d7-4b35-88c3-c0ad94ade478" width="420"/>
+</p>
 
 ---
 
@@ -97,7 +129,11 @@ Choose your avatar, join rooms, walk around the office, and experience **proximi
 * Designed virtual office layout
 * Smooth movement and immersive environment
 
-<img width="913" height="679" alt="map" src="https://github.com/user-attachments/assets/4aa56eda-fec9-4afd-9387-8c87e378f3ee" />
+<br/>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/4aa56eda-fec9-4afd-9387-8c87e378f3ee" width="650"/>
+</p>
 
 ---
 
@@ -129,14 +165,14 @@ Choose your avatar, join rooms, walk around the office, and experience **proximi
 
 **WebRTC & Communication**
 
-* PeerJS (for signaling)
-* STUN/TURN (for connectivity)
+* PeerJS
+* STUN/TURN
 
 **Database**
 
-* Supabase (PostgreSQL)
+* Supabase
 
-**Other Integrations**
+**Other**
 
 * Whiteboard (WBO)
 
@@ -144,26 +180,18 @@ Choose your avatar, join rooms, walk around the office, and experience **proximi
 
 ## 🏗️ Architecture
 
-* Real-time multiplayer powered by WebSockets (Colyseus)
-* Peer-to-peer media via WebRTC
-* Separate services for backend, frontend, signaling, and whiteboard
+* WebSocket-based multiplayer (Colyseus)
+* Peer-to-peer media (WebRTC)
+* Modular services (backend, frontend, signaling, whiteboard)
 
 ---
 
 ## 🚀 Getting Started
 
 ```bash
-# Clone the repository
 git clone YOUR_REPO_LINK
-
-# Install dependencies
 cd project-folder
 npm install
-
-# Run backend
-npm run dev
-
-# Run frontend
 npm run dev
 ```
 
@@ -171,31 +199,24 @@ npm run dev
 
 ## 🌍 Deployment Notes
 
-* Deploy frontend and backend separately
-* Use HTTPS & WSS in production
-* Configure STUN/TURN for stable WebRTC connections
-* Ensure PeerJS server is publicly accessible
+* Deploy frontend & backend separately
+* Use HTTPS / WSS in production
+* Configure TURN for stability
+* Ensure PeerJS is reachable
 
 ---
 
 ## 🎯 Vision
 
-PixelOffice aims to recreate the **feeling of a real workspace** in a digital environment —
-where conversations feel natural, collaboration is seamless, and presence actually matters.
+PixelOffice recreates the **feeling of a real workspace** in a digital world —
+where conversations feel natural and collaboration feels alive.
 
 ---
 
 ## 🙌 Credits
 
-* Inspired by the concept and innovation behind
-  [SkyOffice by Kevin Shen](https://github.com/kevinshen56714/SkyOffice)
-
-* Map assets by
-  [LimeZu](https://limezu.itch.io/)
-
-* Whiteboard powered by
-  [WBO (Whiteboard Open Source)](https://github.com/lovasoa/whitebophir)
+* Inspired by SkyOffice (Kevin Shen)
+* Map assets by LimeZu
+* Whiteboard by WBO
 
 ---
-
-
