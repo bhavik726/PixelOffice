@@ -1,4 +1,11 @@
-// import Peer from 'peerjs';
+import Peer from 'peerjs';
+import { getIceServers, PEER_CONFIG } from '../webrtcConfig';
+
+function sanitizePeerId(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[^0-9a-zA-Z-_]/g, '-');
+}
 
 function getCallTrack(stream) {
   if (stream instanceof MediaStream) {
@@ -9,9 +16,11 @@ function getCallTrack(stream) {
 }
 
 export class PeerMediaManager {
-  constructor() {
-    this.peer = null;
-    console.warn('[PeerMediaManager] Secondary PeerJS is temporarily disabled.');
+  constructor(peerId) {
+    this.peer = new Peer(sanitizePeerId(peerId), {
+      ...PEER_CONFIG,
+      config: { iceServers: getIceServers() },
+    });
 
     this.streams = new Map();
     this.connections = new Map();
@@ -20,7 +29,22 @@ export class PeerMediaManager {
     this.onStreamReceived = () => {};
     this.onPeerDisconnected = () => {};
 
-    // this.peer = new Peer(...)
+    this.peer.on('call', (call) => {
+      const answerStream = getCallTrack(this.localStream);
+      try {
+        call.answer(answerStream);
+      } catch (error) {
+        console.warn('[PeerMediaManager] Failed to answer call', error);
+        call.close();
+        return;
+      }
+
+      this.attachCallHandlers(call);
+    });
+
+    this.peer.on('error', (error) => {
+      console.warn('[PeerMediaManager] Peer error', error);
+    });
   }
 
   getLocalPeerId() {

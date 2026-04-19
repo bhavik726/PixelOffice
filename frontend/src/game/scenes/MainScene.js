@@ -27,30 +27,7 @@ function normalizeCharacterKey(characterKey, avatarId) {
 }
 
 function isNetworkDiagnosticsEnabled() {
-  const envEnabled =
-    typeof import.meta !== 'undefined' &&
-    import.meta.env &&
-    import.meta.env.VITE_NETWORK_DIAGNOSTICS === '1';
-
-  let queryEnabled = false;
-  try {
-    const params = new URLSearchParams(window.location.search);
-    queryEnabled =
-      params.get('netDiag') === '1' ||
-      params.get('diag') === '1' ||
-      params.get('networkDebug') === '1';
-  } catch {
-    queryEnabled = false;
-  }
-
-  let storageEnabled = false;
-  try {
-    storageEnabled = window.localStorage.getItem('pixel_office_net_diag') === '1';
-  } catch {
-    storageEnabled = false;
-  }
-
-  return Boolean(envEnabled || queryEnabled || storageEnabled);
+  return false;
 }
 
 /**

@@ -38,6 +38,7 @@ const connectionLoaderWrap = document.getElementById("connectionLoaderWrap");
 const connectionLoaderEl = document.getElementById("connection-loader");
 const connectionBarEl = document.getElementById("connection-bar");
 const connectionStatusEl = document.getElementById("connection-status");
+const env = (typeof import.meta !== "undefined" && import.meta.env) || {};
 
 function getColyseusServer() {
   if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_COLYSEUS_URL) {
@@ -58,6 +59,46 @@ function getColyseusServer() {
 }
 
 const COLYSEUS_SERVER = getColyseusServer();
+
+function toBoolean(value, fallback = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "1" || normalized === "true" || normalized === "yes") {
+      return true;
+    }
+    if (normalized === "0" || normalized === "false" || normalized === "no") {
+      return false;
+    }
+  }
+
+  return fallback;
+}
+
+function getPeerWarmupUrl() {
+  if (typeof env.VITE_PEER_WARMUP_URL === "string" && env.VITE_PEER_WARMUP_URL.trim()) {
+    return env.VITE_PEER_WARMUP_URL.trim();
+  }
+
+  const host = typeof env.VITE_PEER_HOST === "string" ? env.VITE_PEER_HOST.trim() : "";
+  if (!host) {
+    return null;
+  }
+
+  const secure = toBoolean(env.VITE_PEER_SECURE, true);
+  const protocol = secure ? "https" : "http";
+  const defaultPort = secure ? "443" : "80";
+  const rawPort = typeof env.VITE_PEER_PORT === "string" ? env.VITE_PEER_PORT.trim() : "";
+  const port = rawPort && rawPort !== defaultPort ? `:${rawPort}` : "";
+  const path = typeof env.VITE_PEER_PATH === "string" && env.VITE_PEER_PATH.trim()
+    ? env.VITE_PEER_PATH.trim()
+    : "/peerjs";
+
+  return `${protocol}://${host}${port}${path}`;
+}
 
 let joiningRoomBusy = false;
 let privateRoomsLoaded = false;
@@ -201,15 +242,55 @@ async function waitForBackend() {
       // backend still waking
     }
 
-    const elapsed = Date.now() - startedAt;
-    const ratio = Math.min(1, elapsed / timeoutMs);
-    const stageProgress = 10 + ratio * 50;
-    setProgress(stageProgress, "Waking server (may take ~30s)");
-
     await sleep(1200);
   }
 
   throw new Error("Backend is taking too long to wake up. Please try again.");
+}
+
+async function waitForPeerServer() {
+  const peerWarmupUrl = getPeerWarmupUrl();
+  if (!peerWarmupUrl) {
+    return;
+  }
+
+  const startedAt = Date.now();
+  const timeoutMs = 45000;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const res = await fetch(peerWarmupUrl, { method: "GET" });
+      if (res.ok || (res.status >= 200 && res.status < 500)) {
+        return;
+      }
+    } catch {
+      // peer server still waking
+    }
+
+    await sleep(1200);
+  }
+
+  throw new Error("Peer server is taking too long to wake up. Please try again.");
+}
+
+async function warmupRealtimeServices() {
+  const startedAt = Date.now();
+  const timeoutMs = 45000;
+
+  setProgress(10, "Waking backend and peer services...");
+
+  const progressTimer = window.setInterval(() => {
+    const elapsed = Date.now() - startedAt;
+    const ratio = Math.min(1, elapsed / timeoutMs);
+    const stageProgress = 10 + ratio * 50;
+    setProgress(stageProgress, "Waking backend and peer services (may take ~30s)");
+  }, 250);
+
+  try {
+    await Promise.all([waitForBackend(), waitForPeerServer()]);
+  } finally {
+    window.clearInterval(progressTimer);
+  }
 }
 
 async function connectToColyseus() {
@@ -512,12 +593,12 @@ async function connectPublicLobby() {
   publicConnectSpinner.style.display = "inline-block";
   setConnectionButtonsDisabled(true);
   setConnectionLoaderVisible(true);
-  setProgress(10, "Waking server...");
+  setProgress(10, "Waking backend and peer services...");
   publicErrorEl.style.display = "none";
   publicErrorEl.textContent = "";
 
   try {
-    await waitForBackend();
+    await warmupRealtimeServices();
 
     setProgress(60, "Connecting...");
     await connectToColyseus();
