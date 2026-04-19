@@ -235,15 +235,6 @@ export class ComputerZoneManager {
     return composite;
   }
 
-  async refreshPeerConnections() {
-    if (!this.inZone) {
-      return;
-    }
-
-    this.peerManager.disconnectAll();
-    await this.callExistingParticipants();
-  }
-
   async enterZone(computerId = 'default-computer') {
     if (this.inZone) {
       return;
@@ -329,9 +320,10 @@ export class ComputerZoneManager {
         await this.ensureCameraStream();
       }
 
+      const cameraTrack = this.cameraStream?.getVideoTracks?.()[0] || null;
+      await this.replaceVideoTrack(cameraTrack);
       this.localStream = this.cameraStream;
       this.peerManager.setLocalStream(this.localStream);
-      await this.refreshPeerConnections();
     } catch (error) {
       console.warn('[ComputerZoneManager] Failed to switch back to camera', error);
     }
@@ -366,8 +358,7 @@ export class ComputerZoneManager {
         track.enabled = true;
       });
       this.peerManager.setLocalStream(this.localStream);
-      console.log('[ComputerZoneManager] Screen-share tracks', this.localStream.getTracks());
-      await this.refreshPeerConnections();
+      await this.replaceVideoTrack(screenTrack);
 
       screenTrack.onended = () => {
         if (!this.inZone) {

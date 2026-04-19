@@ -19,7 +19,10 @@ export class PeerMediaManager {
   constructor(peerId) {
     this.peer = new Peer(sanitizePeerId(peerId), {
       ...PEER_CONFIG,
-      config: { iceServers: getIceServers() },
+      config: {
+        iceServers: getIceServers(),
+        iceTransportPolicy: 'all',
+      },
     });
 
     this.streams = new Map();
@@ -123,14 +126,20 @@ export class PeerMediaManager {
     }
 
     return await navigator.mediaDevices.getDisplayMedia({
-      video: true,
-      audio: true,
+      video: {
+        frameRate: 10,
+      },
+      audio: false,
     });
   }
 
   async getCameraStream() {
     return await navigator.mediaDevices.getUserMedia({
-      video: true,
+      video: {
+        width: { ideal: 640 },
+        height: { ideal: 360 },
+        frameRate: { ideal: 15, max: 15 },
+      },
       audio: true,
     });
   }
