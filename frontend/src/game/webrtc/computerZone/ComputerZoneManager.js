@@ -227,9 +227,21 @@ export class ComputerZoneManager {
     screenVideoTracks.forEach((track) => composite.addTrack(track));
 
     const cameraAudioTracks = this.cameraStream?.getAudioTracks?.() || [];
+    if (cameraAudioTracks.length === 0) {
+      console.warn('[ComputerZoneManager] No camera audio track available for screen share');
+    }
     cameraAudioTracks.forEach((track) => composite.addTrack(track));
 
     return composite;
+  }
+
+  async refreshPeerConnections() {
+    if (!this.inZone) {
+      return;
+    }
+
+    this.peerManager.disconnectAll();
+    await this.callExistingParticipants();
   }
 
   async enterZone(computerId = 'default-computer') {
@@ -317,10 +329,9 @@ export class ComputerZoneManager {
         await this.ensureCameraStream();
       }
 
-      const cameraTrack = this.cameraStream?.getVideoTracks?.()[0] || null;
-      await this.replaceVideoTrack(cameraTrack);
       this.localStream = this.cameraStream;
       this.peerManager.setLocalStream(this.localStream);
+      await this.refreshPeerConnections();
     } catch (error) {
       console.warn('[ComputerZoneManager] Failed to switch back to camera', error);
     }
@@ -355,7 +366,8 @@ export class ComputerZoneManager {
         track.enabled = true;
       });
       this.peerManager.setLocalStream(this.localStream);
-      await this.replaceVideoTrack(screenTrack);
+      console.log('[ComputerZoneManager] Screen-share tracks', this.localStream.getTracks());
+      await this.refreshPeerConnections();
 
       screenTrack.onended = () => {
         if (!this.inZone) {
