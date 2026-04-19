@@ -1,4 +1,4 @@
-<p align="right">
+<p align="center">
   <!-- 🔥 ADD YOUR LOGO HERE -->
   <img src="frontend/public/logo.png" width="80"/>
 </p>
