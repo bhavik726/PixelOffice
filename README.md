@@ -83,9 +83,7 @@ Choose your avatar, join rooms, walk around the office, and experience **proximi
 * Instant messaging with live chat
 * Speech bubbles appear above users
 
-<p align="center">
-  <img width="1919" height="1079" alt="chat bubble" src="https://github.com/user-attachments/assets/f4f81f16-d8ae-424c-9486-34fd47f28682" />
-</p>
+<img width="1919" height="940" alt="chat bubble" src="https://github.com/user-attachments/assets/a3a8b415-11b2-4140-9395-86fbcb2fe26f" />
 
 ---
 
