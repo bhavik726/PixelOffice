@@ -192,6 +192,4 @@ where conversations feel natural, collaboration is seamless, and presence actual
 
 ---
 
-## 📜 License
 
-This project is licensed under the MIT License.
