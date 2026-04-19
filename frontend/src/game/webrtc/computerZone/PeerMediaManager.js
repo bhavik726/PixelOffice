@@ -121,13 +121,11 @@ export class PeerMediaManager {
   }
 
   async getScreenStream() {
-    if (navigator.userActivation && !navigator.userActivation.isActive) {
-      throw new Error('Screen sharing must be triggered by a user interaction.');
-    }
-
     return await navigator.mediaDevices.getDisplayMedia({
       video: {
-        frameRate: 10,
+        width: { ideal: 1280, max: 1280 },
+        height: { ideal: 720, max: 720 },
+        frameRate: { ideal: 5, max: 5 },
       },
       audio: false,
     });
