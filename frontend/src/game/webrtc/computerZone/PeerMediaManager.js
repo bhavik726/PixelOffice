@@ -1,5 +1,5 @@
 import Peer from 'peerjs';
-import { getIceServers, PEER_CONFIG } from '../webrtcConfig';
+import { getIceServersAsync, PEER_CONFIG } from '../webrtcConfig';
 
 function sanitizePeerId(value) {
   return String(value || '')
@@ -17,13 +17,8 @@ function getCallTrack(stream) {
 
 export class PeerMediaManager {
   constructor(peerId) {
-    this.peer = new Peer(sanitizePeerId(peerId), {
-      ...PEER_CONFIG,
-      config: {
-        iceServers: getIceServers(),
-        iceTransportPolicy: 'all',
-      },
-    });
+    this.peer = null;
+    this.ready = this.initializePeer(peerId);
 
     this.streams = new Map();
     this.connections = new Map();
@@ -31,6 +26,18 @@ export class PeerMediaManager {
 
     this.onStreamReceived = () => {};
     this.onPeerDisconnected = () => {};
+
+  }
+
+  async initializePeer(peerId) {
+    const iceServers = await getIceServersAsync();
+    this.peer = new Peer(sanitizePeerId(peerId), {
+      ...PEER_CONFIG,
+      config: {
+        iceServers,
+        iceTransportPolicy: 'all',
+      },
+    });
 
     this.peer.on('call', (call) => {
       const answerStream = getCallTrack(this.localStream);
@@ -48,6 +55,10 @@ export class PeerMediaManager {
     this.peer.on('error', (error) => {
       console.warn('[PeerMediaManager] Peer error', error);
     });
+  }
+
+  async whenReady() {
+    await this.ready;
   }
 
   getLocalPeerId() {
@@ -94,6 +105,8 @@ export class PeerMediaManager {
   }
 
   async callPeer(remotePeerId, localStream) {
+    await this.whenReady();
+
     if (!remotePeerId || !this.peer) {
       return;
     }

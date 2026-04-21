@@ -241,6 +241,13 @@ export class ComputerZoneManager {
     }
 
     try {
+      await this.peerManager.whenReady();
+    } catch (error) {
+      console.warn('[ComputerZoneManager] Failed to initialize peer manager', error);
+      return;
+    }
+
+    try {
       await this.ensureCameraStream();
     } catch (error) {
       console.warn('[ComputerZoneManager] Camera/mic unavailable, joining without local AV', error);

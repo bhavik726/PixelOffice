@@ -1,5 +1,5 @@
 import Peer from 'peerjs';
-import { getIceServers, PEER_CONFIG } from './webrtcConfig';
+import { getIceServersAsync, PEER_CONFIG } from './webrtcConfig';
 
 function sanitizePeerId(id) {
   return String(id || '').replace(/[^0-9a-z]/gi, 'G');
@@ -113,10 +113,12 @@ export class PeerManager {
 
     this.localPeerId = sanitizePeerId(sessionId);
 
+    const iceServers = await getIceServersAsync();
+
     const peer = await new Promise((resolve, reject) => {
       const nextPeer = new Peer(this.localPeerId, {
         ...PEER_CONFIG,
-        config: { iceServers: getIceServers() },
+        config: { iceServers },
       });
 
       const onOpen = (peerId) => {
